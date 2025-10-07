@@ -1,0 +1,102 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/utils.dart';
+import '../../../state/auth_provider.dart';
+import '../../../state/request_provider.dart';
+import '../widgets/ptl_search_bar.dart';
+import '../widgets/ptl_request_tile.dart';
+
+class PTLHomePage extends StatefulWidget {
+  const PTLHomePage({super.key});
+
+  @override
+  State<PTLHomePage> createState() => _PTLHomePageState();
+}
+
+class _PTLHomePageState extends State<PTLHomePage> {
+  String _q = '';
+  final _debouncer = Debouncer(milliseconds: 400);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<RequestController>().loadPTLQueue();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthController>();
+    final req = context.watch<RequestController>();
+
+    final items =
+        req.ptlQueue.where((r) {
+          if (_q.trim().isEmpty) return true;
+          final qq = _q.toLowerCase();
+          final a = (r.applicantName ?? '').toLowerCase();
+          final e = (r.externalId ?? '').toLowerCase();
+          return a.contains(qq) || e.contains(qq);
+        }).toList();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Antrian Review PTL'),
+        actions: [
+          IconButton(
+            tooltip: 'Logout',
+            onPressed: () => auth.logout(),
+            icon: const Icon(Icons.logout),
+          ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(64),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: PTLSearchBar(
+              hintText: 'Cari Nama atau ID Pemohon',
+              onChanged: (t) => _debouncer.run(() => setState(() => _q = t)),
+            ),
+          ),
+        ),
+      ),
+      body:
+          req.loadingPTL
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                onRefresh: () => req.loadPTLQueue(),
+                child:
+                    items.isEmpty
+                        ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'Belum ada antrian yang menunggu review.',
+                            ),
+                          ),
+                        )
+                        : ListView.builder(
+                          itemCount: items.length,
+                          itemBuilder: (_, i) {
+                            final r = items[i];
+                            return PTLRequestTile(
+                              data: r,
+                              onTap: () async {
+                                final changed = await context.push<bool>(
+                                  '/ptl/detail/${r.id}',
+                                );
+                                if (changed == true && mounted) {
+                                  context
+                                      .read<RequestController>()
+                                      .loadPTLQueue();
+                                }
+                              },
+                            );
+                          },
+                        ),
+              ),
+    );
+  }
+}
