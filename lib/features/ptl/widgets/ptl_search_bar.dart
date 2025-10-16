@@ -8,6 +8,8 @@ class PTLSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextField(
+      textInputAction: TextInputAction.search,
+      onSubmitted: onChanged,
       onChanged: onChanged,
       decoration: InputDecoration(
         prefixIcon: const Icon(Icons.search),

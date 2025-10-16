@@ -132,6 +132,18 @@ class _AEFormPageState extends State<AEFormPage> {
     );
 
     setState(() => _existing = created);
+
+    // Pastikan catatan AE tersimpan saat create (jika ada).
+    // Aman dipanggil di sini sekalipun service juga mendukung aeNote—hindari duplikasi by constraint/logika backend.
+    if (_noteC.text.trim().isNotEmpty) {
+      await Supabase.instance.client.from('request_notes').insert({
+        'request_id': created.id,
+        'author_id': auth.user!.id,
+        'role_snapshot': 'AE',
+        'note': _noteC.text.trim(),
+        'action': 'note', // wajib 'note' agar lolos constraint
+      });
+    }
     return created;
   }
 
@@ -152,6 +164,23 @@ class _AEFormPageState extends State<AEFormPage> {
     setState(() => _submitting = true);
     final auth = context.read<AuthController>();
     final mediaCtrl = context.read<MediaController>();
+
+    // ====== VALIDASI WAJIB: minimal 1 media (pending atau sudah terunggah) ======
+    final currentRid = widget.requestId ?? _existing?.id;
+    final alreadyUploaded = currentRid == null
+        ? const []
+        : mediaCtrl.mediaOf(currentRid);
+    final hasAtLeastOneMedia =
+        _pending.isNotEmpty || alreadyUploaded.isNotEmpty;
+    if (!hasAtLeastOneMedia) {
+      showSnack(
+        context,
+        'Wajib unggah minimal 1 media (foto/video).',
+        error: true,
+      );
+      if (mounted) setState(() => _submitting = false);
+      return;
+    }
 
     try {
       // 1) Pastikan request ada (auto create bila perlu)

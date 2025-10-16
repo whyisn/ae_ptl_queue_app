@@ -182,10 +182,10 @@ class _AEDetailPageState extends State<AEDetailPage> {
                 ),
               ],
             ),
-      floatingActionButton: IconButton(
-        tooltip: 'Refresh',
+      floatingActionButton: FloatingActionButton.extended(
         onPressed: _load,
         icon: const Icon(Icons.refresh),
+        label: const Text('Refresh'),
       ),
     );
   }

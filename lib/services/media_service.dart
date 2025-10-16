@@ -18,24 +18,47 @@ class MediaService {
     required MediaType type,
     String? caption,
   }) async {
+    // Pastikan user authenticated (policy Storage & RLS butuh ini)
+    final session = supabase.auth.currentSession;
+    if (session == null)
+      throw Exception('Not authenticated. Login dulu sebelum upload.');
+
     final base = p.basename(file.path);
     final filename = '${DateTime.now().millisecondsSinceEpoch}_$base';
-    final objectPath = 'request/$requestId/$filename';
+    // pastikan tanpa leading slash agar persis sama dg storage.objects.name
+    final objectPath = 'request/$requestId/$filename'.replaceFirst(
+      RegExp(r'^/+'),
+      '',
+    );
 
-    await supabase.storage.from(bucket).upload(objectPath, file);
-
-    final row = await supabase
+    // 1) INSERT metadata terlebih dulu (sinkron dengan RLS Storage)
+    final inserted = await supabase
         .from('request_media')
         .insert({
           'request_id': requestId,
-          'url': objectPath, // simpan path objek, bukan public URL
+          'url': objectPath, // path objek (bukan public URL)
           'type': mediaTypeToString(type),
-          'caption': caption,
+          if (caption != null) 'caption': caption,
         })
         .select()
         .single();
 
-    return MediaModel.fromMap(row);
+    // 2) Lalu upload ke Storage (NO UPSERT)
+    try {
+      await supabase.storage
+          .from(bucket)
+          .upload(
+            objectPath,
+            file,
+            fileOptions: const FileOptions(upsert: false),
+          );
+    } catch (e) {
+      // Rollback metadata jika upload gagal (hindari row yatim)
+      await supabase.from('request_media').delete().eq('id', inserted['id']);
+      rethrow;
+    }
+
+    return MediaModel.fromMap(inserted);
   }
 
   /// Ambil semua media milik request + buat signed URL (1 jam).

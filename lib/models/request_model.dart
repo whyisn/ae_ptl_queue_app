@@ -52,6 +52,7 @@ class RequestModel {
   final bool priority;
 
   final String? ptlNoteLast;
+  final String? aeNoteLast;
 
   final DateTime? enqueuedAt;
   final String? reviewedBy; // uid PTL
@@ -75,6 +76,7 @@ class RequestModel {
     this.applicantName,
     this.externalId,
     this.ptlNoteLast,
+    this.aeNoteLast,
     this.enqueuedAt,
     this.reviewedBy,
     this.reviewStartedAt,
@@ -84,12 +86,11 @@ class RequestModel {
   });
 
   /// Menentukan display utama di list: jika externalId ada → pakai itu, kalau tidak → applicantName
-  String get displayApplicant =>
-      (externalId?.trim().isNotEmpty ?? false)
-          ? externalId!.trim()
-          : (applicantName?.trim().isNotEmpty ?? false)
-          ? applicantName!.trim()
-          : '-';
+  String get displayApplicant => (externalId?.trim().isNotEmpty ?? false)
+      ? externalId!.trim()
+      : (applicantName?.trim().isNotEmpty ?? false)
+      ? applicantName!.trim()
+      : '-';
 
   bool get isBeingReviewed =>
       status == RequestStatus.waitingReview && reviewedBy != null;
@@ -105,16 +106,16 @@ class RequestModel {
       status: requestStatusFromString(m['status'] as String?),
       priority: (m['priority'] as bool?) ?? false,
       ptlNoteLast: m['ptl_note_last'] as String?,
+      aeNoteLast: m['ae_note_last'] as String?,
       enqueuedAt: dt(m['enqueued_at'] as String?),
       reviewedBy: m['reviewed_by'] as String?,
       reviewStartedAt: dt(m['review_started_at'] as String?),
       createdAt: DateTime.parse(m['created_at'] as String),
       updatedAt: DateTime.parse(m['updated_at'] as String),
       closedAt: dt(m['closed_at'] as String?),
-      queuePos:
-          m['queue_pos'] is int
-              ? m['queue_pos'] as int?
-              : (m['queue_pos'] as num?)?.toInt(),
+      queuePos: m['queue_pos'] is int
+          ? m['queue_pos'] as int?
+          : (m['queue_pos'] as num?)?.toInt(),
       aeName: m['ae_name'] as String?,
     );
   }
@@ -127,6 +128,7 @@ class RequestModel {
     'status': requestStatusToString(status),
     'priority': priority,
     'ptl_note_last': ptlNoteLast,
+    'ae_note_last': aeNoteLast,
     'enqueued_at': enqueuedAt?.toIso8601String(),
     'reviewed_by': reviewedBy,
     'review_started_at': reviewStartedAt?.toIso8601String(),
@@ -144,6 +146,7 @@ class RequestModel {
     RequestStatus? status,
     bool? priority,
     String? ptlNoteLast,
+    String? aeNoteLast,
     DateTime? enqueuedAt,
     String? reviewedBy,
     DateTime? reviewStartedAt,
@@ -161,6 +164,7 @@ class RequestModel {
       status: status ?? this.status,
       priority: priority ?? this.priority,
       ptlNoteLast: ptlNoteLast ?? this.ptlNoteLast,
+      aeNoteLast: aeNoteLast ?? this.aeNoteLast,
       enqueuedAt: enqueuedAt ?? this.enqueuedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       reviewStartedAt: reviewStartedAt ?? this.reviewStartedAt,

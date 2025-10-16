@@ -18,10 +18,9 @@ class RequestCard extends StatelessWidget {
     // Map -> RequestModel untuk utilitas
     final model = RequestModel.fromMap(data);
 
-    final String statusKey =
-        model.isBeingReviewed
-            ? 'sedang_direview'
-            : requestStatusToString(model.status);
+    final String statusKey = model.isBeingReviewed
+        ? 'sedang_direview'
+        : requestStatusToString(model.status);
 
     return Card(
       child: ListTile(

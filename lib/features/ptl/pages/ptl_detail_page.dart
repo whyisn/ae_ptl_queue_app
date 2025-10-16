@@ -19,6 +19,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
   final _noteC = TextEditingController();
   bool loading = true;
   String? error;
+  bool _processing = false;
 
   @override
   void initState() {
@@ -48,6 +49,8 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
   }
 
   Future<void> _approve() async {
+    if (_processing) return;
+    setState(() => _processing = true);
     final reqCtrl = context.read<RequestController>();
     final ok = await reqCtrl.approve(
       widget.requestId,
@@ -60,6 +63,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
     } else {
       showSnack(context, reqCtrl.errorDetail ?? 'Gagal approve', error: true);
     }
+    if (mounted) setState(() => _processing = false);
   }
 
   Future<void> _reject() async {
@@ -67,6 +71,8 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
       showSnack(context, 'Catatan wajib diisi untuk menolak', error: true);
       return;
     }
+    if (_processing) return;
+    setState(() => _processing = true);
     final reqCtrl = context.read<RequestController>();
     final ok = await reqCtrl.reject(widget.requestId, note: _noteC.text.trim());
     if (!mounted) return;
@@ -76,6 +82,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
     } else {
       showSnack(context, reqCtrl.errorDetail ?? 'Gagal tolak', error: true);
     }
+    if (mounted) setState(() => _processing = false);
   }
 
   Future<void> _revision() async {
@@ -83,6 +90,8 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
       showSnack(context, 'Catatan revisi wajib diisi', error: true);
       return;
     }
+    if (_processing) return;
+    setState(() => _processing = true);
     final reqCtrl = context.read<RequestController>();
     final ok = await reqCtrl.askRevision(
       widget.requestId,
@@ -99,6 +108,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
         error: true,
       );
     }
+    if (mounted) setState(() => _processing = false);
   }
 
   @override
@@ -195,14 +205,14 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: _revision,
+                        onPressed: _processing ? null : _revision,
                         child: const Text('Revisi'),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: FilledButton(
-                        onPressed: _approve,
+                        onPressed: _processing ? null : _approve,
                         child: const Text('Terima'),
                       ),
                     ),
@@ -212,7 +222,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.red,
                         ),
-                        onPressed: _reject,
+                        onPressed: _processing ? null : _reject,
                         child: const Text('Tolak'),
                       ),
                     ),
@@ -222,7 +232,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
             ),
       floatingActionButton: IconButton(
         tooltip: 'Refresh',
-        onPressed: _load,
+        onPressed: _processing ? null : _load,
         icon: const Icon(Icons.refresh),
       ),
     );

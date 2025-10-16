@@ -13,9 +13,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 ///
 /// Pastikan juga menambahkan nilai redirect tsb di:
 ///   Supabase Dashboard → Authentication → URL Configuration → Redirect URLs
-const String kSupabaseUrl = 'https://lbxekjizhwxhiirllzkk.supabase.co';
+const String kSupabaseUrl = 'https://aizrqvfenymowpnibmzi.supabase.co';
 const String kSupabaseAnonKey =
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxieGVraml6aHd4aGlpcmxsemtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MzQyMTgsImV4cCI6MjA3NTMxMDIxOH0.dqJGD4gQ4_uFvybYGZIh_xlpCCkHAPZQFCE_oDyG5n8';
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFpenJxdmZlbnltb3dwbmlibXppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA0MzAxNzIsImV4cCI6MjA3NjAwNjE3Mn0.IVODfpjF0Q9U6plgILGsLYX2tAX5UmdTg73E4RHE7nc';
 const String kAuthRedirectUri = '';
 
 /// Alias singkat untuk client
