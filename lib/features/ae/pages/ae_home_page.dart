@@ -24,12 +24,18 @@ class _AEHomePageState extends State<AEHomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final auth = context.read<AuthController>();
       final req = context.read<RequestController>();
-      if (auth.user != null) {
-        debugPrint('>>> A. AE ID aplikasi: ${auth.user!.id}');
-        req.loadMyRequests(auth.user!.id);
+      final user = auth.user;
+      if (user != null) {
+        debugPrint('>>> A. AE ID aplikasi: ${user.id}');
+        // load dengan awareness RSL (akan pakai fetchMyRequestsByRsl bila rslId ada)
+        await req.loadMyRequestsForUser(user);
+        // nyalakan realtime bila rslId tersedia
+        if (user.rslId != null && user.rslId!.isNotEmpty) {
+          req.startRealtimeForAE(aeId: user.id, rslId: user.rslId!);
+        }
       }
     });
   }
@@ -71,7 +77,7 @@ class _AEHomePageState extends State<AEHomePage> {
             tooltip: 'Refresh',
             onPressed: () async {
               if (auth.user != null) {
-                await req.loadMyRequests(auth.user!.id);
+                await req.loadMyRequestsForUser(auth.user!);
               }
             },
             icon: const Icon(Icons.refresh),
@@ -104,7 +110,7 @@ class _AEHomePageState extends State<AEHomePage> {
           : RefreshIndicator(
               onRefresh: () async {
                 if (auth.user != null) {
-                  await req.loadMyRequests(auth.user!.id);
+                  await req.loadMyRequestsForUser(auth.user!);
                 }
               },
               child: ListView.separated(
@@ -210,7 +216,7 @@ class _AEHomePageState extends State<AEHomePage> {
                                     '/ae/form?id=${item.id}',
                                   );
                                   if (ok == true && auth.user != null) {
-                                    await req.loadMyRequests(auth.user!.id);
+                                    await req.loadMyRequestsForUser(auth.user!);
                                   }
                                 },
                                 icon: const Icon(Icons.edit),
@@ -305,7 +311,7 @@ class _AEHomePageState extends State<AEHomePage> {
                         onPressed: () async {
                           final ok = await context.push('/ae/form');
                           if (ok == true && auth.user != null) {
-                            await req.loadMyRequests(auth.user!.id);
+                            await req.loadMyRequestsForUser(auth.user!);
                           }
                         },
                         child: const Icon(Icons.add),
@@ -321,7 +327,7 @@ class _AEHomePageState extends State<AEHomePage> {
               onPressed: () async {
                 final ok = await context.push('/ae/form');
                 if (ok == true && auth.user != null) {
-                  await req.loadMyRequests(auth.user!.id);
+                  await req.loadMyRequestsForUser(auth.user!);
                 }
               },
               icon: const Icon(Icons.add),

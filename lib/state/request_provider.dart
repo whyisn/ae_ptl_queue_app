@@ -1,11 +1,20 @@
+import 'dart:async' show Timer, StreamSubscription;
 import 'package:flutter/foundation.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/request_model.dart';
+import '../models/user_model.dart';
 import '../repositories/requests_repository.dart';
 
 class RequestController extends ChangeNotifier {
   final RequestsRepository _repo;
 
   RequestController(this._repo);
+
+  // ==== Realtime support (v1 style) ====
+  StreamSubscription<List<Map<String, dynamic>>>? _reqSub;
+  Timer? _debounce; // untuk menahan reload beruntun
+  String? _aeIdCache;
+  String? _rslIdCache;
 
   bool loadingMy = false;
   String? errorMy;
@@ -50,6 +59,120 @@ class RequestController extends ChangeNotifier {
     }
   }
 
+  // =========================
+  // Realtime: API publik
+  // =========================
+  /// AE: subscribe event realtime untuk RSL tertentu.
+  /// Akan auto-reload AE list (dan PTL queue bila diperlukan) ketika ada INSERT/UPDATE/DELETE.
+  void startRealtimeForAE({required String aeId, required String rslId}) {
+    _aeIdCache = aeId;
+    _rslIdCache = rslId;
+    _subscribeRequestsChannel(rslId);
+  }
+
+  /// PTL: subscribe event realtime untuk RSL tertentu.
+  /// Akan auto-reload PTL queue ketika ada perubahan.
+  void startRealtimeForPTL({required String rslId}) {
+    _aeIdCache = null; // tidak perlu reload AE list untuk mode PTL-only
+    _rslIdCache = rslId;
+    _subscribeRequestsChannel(rslId);
+  }
+
+  // =========================
+  // Realtime: implementasi
+  // =========================
+  void _subscribeRequestsChannel(String rslId) {
+    // Batalkan subscription lama agar tidak double-subscribe
+    _reqSub?.cancel();
+
+    // Gunakan stream API: akan push data setiap ada perubahan (INSERT/UPDATE/DELETE)
+    final stream = Supabase.instance.client
+        .from('requests')
+        .stream(primaryKey: ['id'])
+        .eq('rsl_id', rslId); // filter berdasar RSL
+
+    _reqSub = stream.listen((rows) {
+      // Kita tidak pakai 'rows' langsung; tetap trigger reload ter-debounce
+      _onRequestsChange();
+    });
+  }
+
+  void _onRequestsChange() {
+    // Debounce reload agar hemat kuota & smooth
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () async {
+      try {
+        // Reload AE list jika konteks AE tersedia
+        if (_aeIdCache != null) {
+          await loadMyRequests(_aeIdCache!);
+        }
+        // Reload PTL queue; gunakan API yang sudah ada
+        if (_rslIdCache != null) {
+          try {
+            // Jika kamu punya varian by-RSL, panggil di sini.
+            // await loadPTLQueueByRsl(_rslIdCache!);
+            await loadPTLQueue(); // fallback aman ke versi global
+          } catch (_) {
+            await loadPTLQueue();
+          }
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          // ignore: avoid_print
+          print('Realtime reload error: $e');
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _reqSub?.cancel();
+    super.dispose();
+  }
+
+  /// Tambahan: AE list berdasar user (pakai rsl jika tersedia)
+  Future<void> loadMyRequestsForUser(AppUser user) async {
+    loadingMy = true;
+    notifyListeners();
+    try {
+      if (user.rslId != null && user.rslId!.isNotEmpty) {
+        myRequests = await _repo.fetchMyRequestsByRsl(
+          aeId: user.id,
+          rslId: user.rslId!,
+        );
+      } else {
+        myRequests = await _repo.fetchMyRequests(user.id);
+      }
+      errorMy = null;
+    } catch (e) {
+      errorMy = e.toString();
+    } finally {
+      loadingMy = false;
+      notifyListeners();
+    }
+  }
+
+  /// Tambahan: PTL queue berdasar RSL (fallback ke global kalau belum ada rslId)
+  Future<void> loadPTLQueueByRsl(String? rslId) async {
+    loadingPTL = true;
+    notifyListeners();
+    try {
+      if (rslId != null && rslId.isNotEmpty) {
+        ptlQueue = await _repo.fetchAllForPTLByRsl(rslId);
+      } else {
+        ptlQueue = await _repo.fetchAllForPTL();
+      }
+      errorPTL = null;
+    } catch (e) {
+      errorPTL = e.toString();
+    } finally {
+      loadingPTL = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> loadDetail(String requestId) async {
     loadingDetail = true;
     notifyListeners();
@@ -66,6 +189,7 @@ class RequestController extends ChangeNotifier {
 
   Future<RequestModel?> createRequest({
     required String aeId,
+    String? rslId,
     String? applicantName,
     String? externalId,
     String? aeNote,
@@ -73,6 +197,7 @@ class RequestController extends ChangeNotifier {
     try {
       final r = await _repo.createRequest(
         aeId: aeId,
+        rslId: rslId,
         applicantName: applicantName,
         externalId: externalId,
         aeNote: aeNote,

@@ -22,8 +22,18 @@ class _PTLHomePageState extends State<PTLHomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RequestController>().loadPTLQueue();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final auth = context.read<AuthController>();
+      final req = context.read<RequestController>();
+      final user = auth.user;
+      if (user != null) {
+        await req.loadPTLQueueByRsl(user.rslId); // pakai RSL bila ada
+        if (user.rslId != null && user.rslId!.isNotEmpty) {
+          req.startRealtimeForPTL(rslId: user.rslId!);
+        }
+      } else {
+        await req.loadPTLQueue(); // fallback
+      }
     });
   }
 
@@ -32,14 +42,13 @@ class _PTLHomePageState extends State<PTLHomePage> {
     final auth = context.watch<AuthController>();
     final req = context.watch<RequestController>();
 
-    final items =
-        req.ptlQueue.where((r) {
-          if (_q.trim().isEmpty) return true;
-          final qq = _q.toLowerCase();
-          final a = (r.applicantName ?? '').toLowerCase();
-          final e = (r.externalId ?? '').toLowerCase();
-          return a.contains(qq) || e.contains(qq);
-        }).toList();
+    final items = req.ptlQueue.where((r) {
+      if (_q.trim().isEmpty) return true;
+      final qq = _q.toLowerCase();
+      final a = (r.applicantName ?? '').toLowerCase();
+      final e = (r.externalId ?? '').toLowerCase();
+      return a.contains(qq) || e.contains(qq);
+    }).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -62,41 +71,51 @@ class _PTLHomePageState extends State<PTLHomePage> {
           ),
         ),
       ),
-      body:
-          req.loadingPTL
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                onRefresh: () => req.loadPTLQueue(),
-                child:
-                    items.isEmpty
-                        ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Text(
-                              'Belum ada antrian yang menunggu review.',
-                            ),
-                          ),
-                        )
-                        : ListView.builder(
-                          itemCount: items.length,
-                          itemBuilder: (_, i) {
-                            final r = items[i];
-                            return PTLRequestTile(
-                              data: r,
-                              onTap: () async {
-                                final changed = await context.push<bool>(
-                                  '/ptl/detail/${r.id}',
-                                );
-                                if (changed == true && mounted) {
-                                  context
-                                      .read<RequestController>()
-                                      .loadPTLQueue();
-                                }
-                              },
+      body: req.loadingPTL
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () async {
+                final user = context.read<AuthController>().user;
+                if (user != null) {
+                  await req.loadPTLQueueByRsl(user.rslId);
+                } else {
+                  await req.loadPTLQueue();
+                }
+              },
+              child: items.isEmpty
+                  ? const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('Belum ada antrian yang menunggu review.'),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: items.length,
+                      itemBuilder: (_, i) {
+                        final r = items[i];
+                        return PTLRequestTile(
+                          data: r,
+                          onTap: () async {
+                            final changed = await context.push<bool>(
+                              '/ptl/detail/${r.id}',
                             );
+                            if (changed == true && mounted) {
+                              final u = context.read<AuthController>().user;
+                              if (u != null) {
+                                await context
+                                    .read<RequestController>()
+                                    .loadPTLQueueByRsl(u.rslId);
+                              } else {
+                                await context
+                                    .read<RequestController>()
+                                    .loadPTLQueue();
+                              }
+                            }
                           },
-                        ),
-              ),
+                        );
+                      },
+                    ),
+            ),
     );
   }
 }

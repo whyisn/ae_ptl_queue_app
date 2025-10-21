@@ -126,6 +126,7 @@ class _AEFormPageState extends State<AEFormPage> {
 
     final created = await _reqSvc.createRequest(
       aeId: auth.user!.id,
+      rslId: auth.user!.rslId, // ⬅️ penting: bind ke RSL user AE
       applicantName: _nameC.text.trim().isEmpty ? null : _nameC.text.trim(),
       externalId: _extIdC.text.trim().isEmpty ? null : _extIdC.text.trim(),
       aeNote: _noteC.text.trim().isEmpty ? null : _noteC.text.trim(),

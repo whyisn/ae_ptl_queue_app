@@ -45,6 +45,7 @@ class RequestsService {
   /// - Jika `aeNote` diisi, simpan ke `request_notes` dengan action = 'note'.
   Future<RequestModel> createRequest({
     required String aeId,
+    String? rslId,
     String? applicantName,
     String? externalId,
     String? aeNote,
@@ -53,6 +54,7 @@ class RequestsService {
         .from('requests')
         .insert({
           'ae_id': aeId,
+          if (rslId != null) 'rsl_id': rslId,
           'applicant_name': applicantName,
           'external_id': externalId,
           'status': 'waiting_review',

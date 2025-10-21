@@ -75,6 +75,149 @@ class RequestsRepository {
     return enriched;
   }
 
+  /// Versi ber-filter RSL (tidak merusak fungsi lama)
+  // Future<List<RequestModel>> fetchMyRequestsByRsl({
+  //   required String aeId,
+  //   required String rslId,
+  // }) async {
+  //   final baseRows = await _sb
+  //       .from('requests')
+  //       .select('''
+  //         id, ae_id, applicant_name, external_id, status, priority,
+  //         ptl_note_last, enqueued_at, reviewed_by, review_started_at,
+  //         created_at, updated_at, closed_at, rsl_id
+  //       ''')
+  //       .eq('ae_id', aeId)
+  //       .eq('rsl_id', rslId) // <-- filter RSL
+  //       .order('created_at', ascending: true);
+
+  //   // Sisanya copy paste mapping + inject queue_pos seperti fungsi asli kamu
+  //   final list = (baseRows as List).cast<Map<String, dynamic>>();
+  //   if (list.isEmpty) return const [];
+
+  //   // === Inject queue_pos via VIEW (tetap gaya kamu) ===
+  //   final ids = list
+  //       .where((m) => (m['status'] as String?) == 'waiting_review')
+  //       .map((m) => m['id'] as String)
+  //       .toList(growable: false);
+  //   Map<String, Map<String, dynamic>> posById = {};
+  //   if (ids.isNotEmpty) {
+  //     final idConds = ids.map((id) => 'id.eq.$id').join(',');
+  //     final posRows = await _sb
+  //         .from('v_waiting_queue_with_pos')
+  //         .select(
+  //           'id, queue_pos, ae_name, rsl_id',
+  //         ) // kalau kolom rsl_id ada di view
+  //         .or(idConds);
+  //     for (final r in (posRows as List).cast<Map<String, dynamic>>()) {
+  //       posById[r['id'] as String] = r;
+  //     }
+  //   }
+
+  //   // Ambil catatan AE terakhir (bulk) — sesuai kode kamu
+  //   final notesRows = await _sb
+  //       .from('request_notes')
+  //       .select('request_id, note, created_at')
+  //       .inFilter('request_id', list.map((e) => e['id']).toList())
+  //       .eq('role_snapshot', 'AE')
+  //       .order('created_at', ascending: false);
+  //   final Map<String, String> latestAeNoteByReq = {};
+  //   for (final r in (notesRows as List).cast<Map<String, dynamic>>()) {
+  //     final rid = r['request_id'] as String;
+  //     latestAeNoteByReq.putIfAbsent(rid, () => r['note'] as String? ?? '');
+  //   }
+
+  //   // Gabungkan semuanya → RequestModel
+  //   final enriched = list.map((m) {
+  //     final id = m['id'] as String;
+  //     final pos = posById[id];
+  //     if (pos != null) {
+  //       m = Map<String, dynamic>.from(m)
+  //         ..['queue_pos'] = pos['queue_pos']
+  //         ..['ae_name'] = pos['ae_name'];
+  //     }
+  //     final aeNote = latestAeNoteByReq[id];
+  //     if (aeNote != null && aeNote.isNotEmpty) {
+  //       m = Map<String, dynamic>.from(m)..['ae_note_last'] = aeNote;
+  //     }
+  //     return RequestModel.fromMap(m);
+  //   }).toList();
+
+  //   return enriched;
+  // }
+
+  Future<List<RequestModel>> fetchMyRequestsByRsl({
+    required String aeId,
+    required String rslId,
+  }) async {
+    final baseRows = await _sb
+        .from('requests')
+        .select('''
+        id, ae_id, applicant_name, external_id, status, priority,
+        ptl_note_last, enqueued_at, reviewed_by, review_started_at,
+        created_at, updated_at, closed_at, rsl_id
+      ''')
+        .eq('ae_id', aeId) // FILTER 1
+        .eq('rsl_id', rslId) // FILTER 2 — tetap sebelum order
+        .order('created_at', ascending: true);
+
+    final list = (baseRows as List).cast<Map<String, dynamic>>();
+    if (list.isEmpty) return const [];
+
+    // === Inject queue_pos dari view (sesuai gaya kode kamu) ===
+    final ids = list
+        .where((m) => (m['status'] as String?) == 'waiting_review')
+        .map((m) => m['id'] as String)
+        .toList(growable: false);
+
+    Map<String, Map<String, dynamic>> posById = {};
+    if (ids.isNotEmpty) {
+      final idConds = ids.map((id) => 'id.eq.$id').join(',');
+      final posRows = await _sb
+          .from('v_waiting_queue_with_pos')
+          .select(
+            'id, queue_pos, ae_name',
+          ) // tambahkan rsl_id jika view sudah ada
+          .or(idConds);
+
+      for (final r in (posRows as List).cast<Map<String, dynamic>>()) {
+        posById[r['id'] as String] = r;
+      }
+    }
+
+    // === Ambil catatan AE terakhir (bulk) ===
+    final notesRows = await _sb
+        .from('request_notes')
+        .select('request_id, note, created_at')
+        .inFilter('request_id', list.map((e) => e['id']).toList())
+        .eq('role_snapshot', 'AE')
+        .order('created_at', ascending: false);
+
+    final Map<String, String> latestAeNoteByReq = {};
+    for (final r in (notesRows as List).cast<Map<String, dynamic>>()) {
+      final rid = r['request_id'] as String;
+      latestAeNoteByReq.putIfAbsent(rid, () => r['note'] as String? ?? '');
+    }
+
+    // === Merge & map ===
+    final enriched = list.map((m) {
+      final id = m['id'] as String;
+      final pos = posById[id];
+      if (pos != null) {
+        m = Map<String, dynamic>.from(m)
+          ..['queue_pos'] = pos['queue_pos']
+          ..['ae_name'] = pos['ae_name'];
+      }
+      final aeNote = latestAeNoteByReq[id];
+      if (aeNote != null && aeNote.isNotEmpty) {
+        m = Map<String, dynamic>.from(m)..['ae_note_last'] = aeNote;
+      }
+      return RequestModel.fromMap(m);
+    }).toList();
+
+    return enriched;
+  }
+
   // ========= PTL QUEUE (global) =========
   Future<List<RequestModel>> fetchAllForPTL() async {
     final rows = await _sb
@@ -86,6 +229,45 @@ class RequestsRepository {
           queue_pos, ae_name
         ''')
         .order('queue_pos', ascending: true);
+
+    return (rows as List)
+        .map((m) => RequestModel.fromMap(m as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Varian dengan filter RSL (tidak menghapus fungsi global)
+  // Future<List<RequestModel>> fetchAllForPTLByRsl(String rslId) async {
+  //   final q = _sb
+  //       .from('v_waiting_queue_with_pos')
+  //       .select('''
+  //         id, ae_id, applicant_name, external_id, status, priority,
+  //         ptl_note_last, enqueued_at, reviewed_by, review_started_at,
+  //         created_at, updated_at, closed_at,
+  //         queue_pos, ae_name, rsl_id
+  //       ''')
+  //       .order('queue_pos', ascending: true);
+  //   // Jika view kamu belum expose rsl_id, hapus baris di bawah dan tambahkan rsl_id ke view di migrasi SQL.
+  //   q.filter('rsl_id', 'eq', rslId);
+  //   q.order('created_at', ascending: true);
+
+  //   final rows = await q;
+  //   return (rows as List)
+  //       .map((m) => RequestModel.fromMap(m as Map<String, dynamic>))
+  //       .toList();
+  // }
+
+  Future<List<RequestModel>> fetchAllForPTLByRsl(String rslId) async {
+    // Jika view-mu sudah expose rsl_id:
+    final rows = await _sb
+        .from('v_waiting_queue_with_pos')
+        .select('''
+        id, ae_id, applicant_name, external_id, status, priority,
+        ptl_note_last, enqueued_at, reviewed_by, review_started_at,
+        created_at, updated_at, closed_at,
+        queue_pos, ae_name, rsl_id
+      ''')
+        .eq('rsl_id', rslId) // FILTER DULU
+        .order('queue_pos', ascending: true); // BARU ORDER
 
     return (rows as List)
         .map((m) => RequestModel.fromMap(m as Map<String, dynamic>))
@@ -143,6 +325,7 @@ class RequestsRepository {
   /// Jika [aeNote] diisi, simpan sebagai catatan awal ke tabel `request_notes`.
   Future<RequestModel> createRequest({
     required String aeId,
+    String? rslId,
     String? applicantName,
     String? externalId,
     String? aeNote,
@@ -151,6 +334,8 @@ class RequestsRepository {
         .from('requests')
         .insert({
           'ae_id': aeId,
+          if (rslId != null)
+            'rsl_id': rslId, // penting agar terlihat di PTL & Realtime
           'applicant_name': applicantName,
           'external_id': externalId,
           'status': 'waiting_review',
