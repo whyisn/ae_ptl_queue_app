@@ -8,6 +8,7 @@ import '../../../state/auth_provider.dart';
 import '../../../state/media_provider.dart';
 import '../../../state/request_provider.dart';
 import '../../shared/media_preview.dart';
+import '../../shared/status_badge.dart';
 
 class AEDetailPage extends StatefulWidget {
   final String requestId;
@@ -44,11 +45,27 @@ class _AEDetailPageState extends State<AEDetailPage> {
       final d = reqCtrl.currentDetail;
       if (d == null) throw Exception('Data tidak ditemukan');
 
-      // Nomor antrian hanya saat waiting_review dan belum di-take PTL.
+      // // Nomor antrian hanya saat waiting_review dan belum di-take PTL.
+      // if (d.status == RequestStatus.waitingReview && d.reviewedBy == null) {
+      //   final sb = Supabase.instance.client;
+      //   final pos = await sb.rpc('queue_position', params: {'req_id': d.id});
+      //   setState(() => queuePos = (pos as int?) ?? 0);
+      // } else {
+      //   setState(() => queuePos = null);
+      // }
+
+      // Nomor antrian hanya saat waiting_review & belum di-take PTL.
       if (d.status == RequestStatus.waitingReview && d.reviewedBy == null) {
         final sb = Supabase.instance.client;
-        final pos = await sb.rpc('queue_position', params: {'req_id': d.id});
-        setState(() => queuePos = (pos as int?) ?? 0);
+        final rs = await sb
+            .from('v_waiting_queue_with_pos')
+            .select('queue_pos')
+            .eq('id', d.id)
+            .limit(1);
+        final qp = (rs is List && rs.isNotEmpty)
+            ? (rs.first['queue_pos'] as int?)
+            : null;
+        setState(() => queuePos = qp);
       } else {
         setState(() => queuePos = null);
       }
@@ -90,6 +107,13 @@ class _AEDetailPageState extends State<AEDetailPage> {
     final mediaCtrl = context.watch<MediaController>();
     final auth = context.watch<AuthController>();
     final d = reqCtrl.currentDetail;
+    // Cari request yang sedang direview (dari list yang sudah dimuat),
+    // fallback ke detail saat ini bila applicable.
+    // final highlighted = reqCtrl.myRequests.firstWhere(
+    //   (e) => e.isBeingReviewed,
+    //   orElse: () => d ?? (null as dynamic),
+    // );
+    final highlighted = reqCtrl.globallyReviewed;
 
     return Scaffold(
       appBar: AppBar(
@@ -187,6 +211,24 @@ class _AEDetailPageState extends State<AEDetailPage> {
         icon: const Icon(Icons.refresh),
         label: const Text('Refresh'),
       ),
+
+      // Banner "Sedang Direview" di semua halaman AE
+      bottomNavigationBar:
+          (highlighted != null) // &&
+          //     highlighted is RequestModel &&
+          //     highlighted.isBeingReviewed)
+          ? SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: _GlobalReviewBar(
+                  title: highlighted.displayApplicant,
+                  subtitle:
+                      'Diajukan oleh: ${highlighted.aeName ?? (auth.user?.email ?? 'Saya')}',
+                ),
+              ),
+            )
+          : null,
     );
   }
 }
@@ -229,6 +271,78 @@ class _ApplicantIdentity extends StatelessWidget {
     return Text(
       text,
       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+    );
+  }
+}
+
+/// Banner kompak yang tampil di bawah setiap halaman AE saat ada request
+/// yang sedang direview oleh PTL.
+class _GlobalReviewBar extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  const _GlobalReviewBar({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 76, maxHeight: 104),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              const _GreenDot(),
+              const SizedBox(width: 8),
+              const StatusBadge(status: 'sedang_direview'),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GreenDot extends StatelessWidget {
+  const _GreenDot();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.green,
+      ),
     );
   }
 }

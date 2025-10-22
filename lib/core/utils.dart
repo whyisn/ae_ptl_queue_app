@@ -65,10 +65,28 @@ String friendlyStatusForAE(Map<String, dynamic> row) {
 
 /// Map status dari DB → label ramah untuk PTL
 String friendlyStatusForPTL(Map<String, dynamic> row) {
+  // final s = (row['status'] as String?) ?? '';
+  // // Di detail PTL, saat dibuka dianggap "Sedang Direview"
+  // if (s == 'waiting_review') return 'Sedang Direview';
+  // switch (s) {
+  //   case 'revision_requested':
+  //     return 'Permintaan Revisi';
+  //   case 'approved':
+  //     return 'Diterima';
+  //   case 'rejected':
+  //     return 'Ditolak';
+  //   default:
+  //     return s;
+  // }
   final s = (row['status'] as String?) ?? '';
-  // Di detail PTL, saat dibuka dianggap "Sedang Direview"
-  if (s == 'waiting_review') return 'Sedang Direview';
+  final reviewedBy = row['reviewed_by'];
+  // "Sedang Direview" HANYA jika sudah dipegang PTL (reviewed_by != null)
+  if (reviewedBy != null && s == 'waiting_review') {
+    return 'Sedang Direview';
+  }
   switch (s) {
+    case 'waiting_review':
+      return 'Menunggu Review';
     case 'revision_requested':
       return 'Permintaan Revisi';
     case 'approved':

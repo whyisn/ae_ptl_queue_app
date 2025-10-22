@@ -32,6 +32,8 @@ class _AEHomePageState extends State<AEHomePage> {
         debugPrint('>>> A. AE ID aplikasi: ${user.id}');
         // load dengan awareness RSL (akan pakai fetchMyRequestsByRsl bila rslId ada)
         await req.loadMyRequestsForUser(user);
+        // AE juga muat PTL queue supaya banner global konsisten
+        await req.loadPTLQueueByRsl(user.rslId);
         // nyalakan realtime bila rslId tersedia
         if (user.rslId != null && user.rslId!.isNotEmpty) {
           req.startRealtimeForAE(aeId: user.id, rslId: user.rslId!);
@@ -56,13 +58,16 @@ class _AEHomePageState extends State<AEHomePage> {
     final req = context.watch<RequestController>();
     final list = _filtered(req.myRequests);
 
-    RequestModel? highlighted;
-    for (final r in list) {
-      if (r.isBeingReviewed) {
-        highlighted = r;
-        break;
-      }
-    }
+    // RequestModel? highlighted;
+    // for (final r in list) {
+    //   if (r.isBeingReviewed) {
+    //     highlighted = r;
+    //     break;
+    //   }
+    // }
+
+    // Banner mengambil dari PTL queue (global), bukan list milik AE
+    final highlighted = req.globallyReviewed;
 
     return Scaffold(
       appBar: AppBar(
@@ -78,6 +83,7 @@ class _AEHomePageState extends State<AEHomePage> {
             onPressed: () async {
               if (auth.user != null) {
                 await req.loadMyRequestsForUser(auth.user!);
+                await req.loadPTLQueueByRsl(auth.user!.rslId);
               }
             },
             icon: const Icon(Icons.refresh),
@@ -244,84 +250,105 @@ class _AEHomePageState extends State<AEHomePage> {
                 },
               ),
             ),
-      // Kartu highlight "Sedang direview"
+
+      // // Kartu highlight "Sedang direview"
+      // bottomNavigationBar: (highlighted != null)
+      //     ? SafeArea(
+      //         top: false,
+      //         child: Padding(
+      //           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+      //           child: Container(
+      //             padding: const EdgeInsets.all(16),
+      //             decoration: BoxDecoration(
+      //               color: Theme.of(context).colorScheme.surface,
+      //               borderRadius: BorderRadius.circular(16),
+      //               boxShadow: const [
+      //                 BoxShadow(
+      //                   blurRadius: 12,
+      //                   offset: Offset(0, 4),
+      //                   color: Color(0x14000000),
+      //                 ),
+      //               ],
+      //             ),
+      //             child: Row(
+      //               children: [
+      //                 Container(
+      //                   width: 10,
+      //                   height: 10,
+      //                   margin: const EdgeInsets.only(right: 8, top: 2),
+      //                   decoration: const BoxDecoration(
+      //                     shape: BoxShape.circle,
+      //                     color: Colors.green,
+      //                   ),
+      //                 ),
+      //                 Expanded(
+      //                   child: Column(
+      //                     crossAxisAlignment: CrossAxisAlignment.start,
+      //                     children: [
+      //                       Text(
+      //                         'Sedang direview',
+      //                         style: TextStyle(
+      //                           fontSize: 12,
+      //                           color: Colors.grey.shade700,
+      //                           fontWeight: FontWeight.w600,
+      //                         ),
+      //                       ),
+      //                       const SizedBox(height: 4),
+      //                       Text(
+      //                         highlighted!.displayApplicant,
+      //                         style: const TextStyle(
+      //                           fontSize: 16,
+      //                           fontWeight: FontWeight.w700,
+      //                         ),
+      //                       ),
+      //                       const SizedBox(height: 2),
+      //                       Text(
+      //                         'Diajukan oleh: ${highlighted!.aeName ?? (auth.user?.email ?? 'Saya')}',
+      //                         style: TextStyle(
+      //                           fontSize: 12,
+      //                           color: Colors.grey.shade600,
+      //                         ),
+      //                       ),
+      //                     ],
+      //                   ),
+      //                 ),
+      //                 const SizedBox(width: 8),
+      //                 FloatingActionButton.small(
+      //                   heroTag: 'fab-mini',
+      //                   onPressed: () async {
+      //                     final ok = await context.push('/ae/form');
+      //                     if (ok == true && auth.user != null) {
+      //                       await req.loadMyRequestsForUser(auth.user!);
+      //                     }
+      //                   },
+      //                   child: const Icon(Icons.add),
+      //                 ),
+      //               ],
+      //             ),
+      //           ),
+      //         ),
+      //       )
+      //     : null,
       bottomNavigationBar: (highlighted != null)
           ? SafeArea(
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                        color: Color(0x14000000),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        margin: const EdgeInsets.only(right: 8, top: 2),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.green,
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Sedang direview',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade700,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              highlighted!.displayApplicant,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Diajukan oleh: ${highlighted!.aeName ?? (auth.user?.email ?? 'Saya')}',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey.shade600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FloatingActionButton.small(
-                        heroTag: 'fab-mini',
-                        onPressed: () async {
-                          final ok = await context.push('/ae/form');
-                          if (ok == true && auth.user != null) {
-                            await req.loadMyRequestsForUser(auth.user!);
-                          }
-                        },
-                        child: const Icon(Icons.add),
-                      ),
-                    ],
-                  ),
+                child: _ReviewInProgressBar(
+                  title: highlighted!.displayApplicant,
+                  subtitle:
+                      'Diajukan oleh: ${highlighted!.aeName ?? (auth.user?.email ?? 'Saya')}',
+                  onAdd: () async {
+                    final ok = await context.push('/ae/form');
+                    if (ok == true && auth.user != null) {
+                      await req.loadMyRequestsForUser(auth.user!);
+                    }
+                  },
                 ),
               ),
             )
           : null,
+
       floatingActionButton: (highlighted == null)
           ? FloatingActionButton.extended(
               onPressed: () async {
@@ -334,6 +361,90 @@ class _AEHomePageState extends State<AEHomePage> {
               label: const Text('Buat Permohonan'),
             )
           : null,
+    );
+  }
+}
+
+/// Bar “Sedang Direview” yang tampil di bawah (tinggi terbatas & konsisten gaya).
+class _ReviewInProgressBar extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final VoidCallback onAdd;
+  const _ReviewInProgressBar({
+    required this.title,
+    required this.subtitle,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 76, maxHeight: 104),
+      child: Card(
+        elevation: 4,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              // indikator + badge sesuai komponen shared
+              const _GreenDot(),
+              const SizedBox(width: 8),
+              const StatusBadge(status: 'sedang_direview'),
+              const SizedBox(width: 10),
+              // teks
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              FloatingActionButton.small(
+                heroTag: 'fab-mini',
+                onPressed: onAdd,
+                child: const Icon(Icons.add),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GreenDot extends StatelessWidget {
+  const _GreenDot();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.green,
+      ),
     );
   }
 }

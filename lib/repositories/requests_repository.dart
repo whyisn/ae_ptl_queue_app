@@ -22,6 +22,8 @@ class RequestsRepository {
           created_at, updated_at, closed_at
         ''')
         .eq('ae_id', aeId)
+        // hanya status aktif (tidak menampilkan approved/rejected)
+        .inFilter('status', ['waiting_review', 'revision_requested', 'draft'])
         .order('created_at', ascending: true);
 
     final list = (baseRows as List).cast<Map<String, dynamic>>();
@@ -380,6 +382,15 @@ class RequestsRepository {
           'review_started_at': DateTime.now().toIso8601String(),
         })
         .eq('id', id);
+  }
+
+  /// Lepaskan lock review (dipanggil saat PTL keluar tanpa keputusan)
+  Future<void> releaseReview(String id) async {
+    await _sb
+        .from('requests')
+        .update({'reviewed_by': null, 'review_started_at': null})
+        .eq('id', id)
+        .eq('status', 'waiting_review'); // hanya untuk yang masih waiting
   }
 
   Future<void> approve(String id, {String? note}) async {

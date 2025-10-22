@@ -279,14 +279,14 @@ class _AEFormPageState extends State<AEFormPage> {
                     TextFormField(
                       controller: _extIdC,
                       decoration: const InputDecoration(
-                        labelText: 'ID Pemohon (opsional)',
+                        labelText: 'ID Pemohon',
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _nameC,
                       decoration: const InputDecoration(
-                        labelText: 'Nama Pemohon (opsional)',
+                        labelText: 'Nama Pemohon',
                       ),
                     ),
                     const SizedBox(height: 12),

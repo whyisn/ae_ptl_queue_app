@@ -10,10 +10,12 @@ class PTLRequestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Ambil teks status dari helper yang sudah diperbaiki
+    final statusText = friendlyStatusForPTL(data.toMap());
     final subtitle = <Widget>[
       const SizedBox(height: 6),
       Text(
-        'Status: ${friendlyStatusForPTL(data.toMap())}',
+        'Status: $statusText',
         style: const TextStyle(fontWeight: FontWeight.w500),
       ),
       if (data.aeName != null && data.aeName!.isNotEmpty)

@@ -28,6 +28,17 @@ class RequestController extends ChangeNotifier {
   String? errorDetail;
   RequestModel? currentDetail;
 
+  /// === Highlight global: request yang sedang direview (berdasar PTL queue)
+  RequestModel? get globallyReviewed {
+    try {
+      return ptlQueue.firstWhere(
+        (e) => e.isBeingReviewed && e.status == RequestStatus.waitingReview,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> loadMyRequests(String aeId) async {
     loadingMy = true;
     notifyListeners();
@@ -109,9 +120,8 @@ class RequestController extends ChangeNotifier {
         // Reload PTL queue; gunakan API yang sudah ada
         if (_rslIdCache != null) {
           try {
-            // Jika kamu punya varian by-RSL, panggil di sini.
-            // await loadPTLQueueByRsl(_rslIdCache!);
-            await loadPTLQueue(); // fallback aman ke versi global
+            // Utamakan by-RSL supaya lebih hemat data
+            await loadPTLQueueByRsl(_rslIdCache!);
           } catch (_) {
             await loadPTLQueue();
           }
@@ -220,6 +230,14 @@ class RequestController extends ChangeNotifier {
 
   Future<void> markBeingReviewed(String requestId) async {
     await _repo.markBeingReviewed(requestId);
+    // setelah lock, refresh queue agar banner konsisten di semua halaman
+    await loadPTLQueueByRsl(_rslIdCache);
+  }
+
+  /// Lepaskan lock jika PTL keluar tanpa keputusan
+  Future<void> releaseReview(String requestId) async {
+    await _repo.releaseReview(requestId);
+    await loadPTLQueueByRsl(_rslIdCache);
   }
 
   Future<bool> approve(String requestId, {String? note}) async {

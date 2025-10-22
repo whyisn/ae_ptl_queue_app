@@ -16,8 +16,13 @@ import 'state/media_provider.dart';
 
 import 'routing/app_router.dart';
 
+import 'package:intl/date_symbol_data_local.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Siapkan locale data untuk semua format tanggal (mis. 'id_ID')
+  await initializeDateFormatting('id_ID');
 
   // Pakai helper milikmu (sudah ada di lib/core/supabase_client.dart)
   await initSupabase();

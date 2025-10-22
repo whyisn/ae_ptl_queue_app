@@ -20,6 +20,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
   bool loading = true;
   String? error;
   bool _processing = false;
+  bool _decided = false; // true kalau approve/reject/revision dipanggil
 
   @override
   void initState() {
@@ -58,6 +59,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
     );
     if (!mounted) return;
     if (ok) {
+      _decided = true;
       showSnack(context, 'Permohonan diterima');
       Navigator.pop(context, true);
     } else {
@@ -77,6 +79,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
     final ok = await reqCtrl.reject(widget.requestId, note: _noteC.text.trim());
     if (!mounted) return;
     if (ok) {
+      _decided = true;
       showSnack(context, 'Permohonan ditolak');
       Navigator.pop(context, true);
     } else {
@@ -99,6 +102,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
     );
     if (!mounted) return;
     if (ok) {
+      _decided = true;
       showSnack(context, 'Permintaan revisi dikirim (prioritas)');
       Navigator.pop(context, true);
     } else {
@@ -117,6 +121,15 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
     super.dispose();
   }
 
+  Future<bool> _onWillPop() async {
+    // Jika belum mengambil keputusan, lepaskan lock
+    if (!_decided) {
+      final reqCtrl = context.read<RequestController>();
+      await reqCtrl.releaseReview(widget.requestId);
+    }
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthController>();
@@ -124,116 +137,119 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
     final mediaCtrl = context.watch<MediaController>();
     final d = reqCtrl.currentDetail;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Detail Permohonan (PTL)'),
-        actions: [
-          IconButton(
-            onPressed: () => auth.logout(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : (error != null || d == null)
-          ? Center(child: Text(error ?? 'Data tidak ditemukan'))
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                // === Header Identitas ===
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _ApplicantIdentity(
-                          id: d.externalId,
-                          name: d.applicantName,
-                        ),
-                        const SizedBox(height: 6),
-                        Text('Status: ${friendlyStatusForPTL(d.toMap())}'),
-                        if ((d.aeName ?? '').isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Text('Diajukan oleh: ${d.aeName!}'),
-                          ),
-                        if (d.priority)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6),
-                            child: Text(
-                              'PRIORITAS',
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 8),
-                Text(
-                  'Dokumentasi:',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                MediaPreview(
-                  media: mediaCtrl
-                      .mediaOf(widget.requestId)
-                      .map((m) => m.toMap())
-                      .toList(),
-                ),
-
-                const SizedBox(height: 16),
-                Text(
-                  'Catatan PTL (wajib untuk Tolak/Revisi):',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _noteC,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: 'Tulis catatan review…',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _processing ? null : _revision,
-                        child: const Text('Revisi'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _processing ? null : _approve,
-                        child: const Text('Terima'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: FilledButton(
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.red,
-                        ),
-                        onPressed: _processing ? null : _reject,
-                        child: const Text('Tolak'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Detail Permohonan (PTL)'),
+          actions: [
+            IconButton(
+              onPressed: () => auth.logout(),
+              icon: const Icon(Icons.logout),
+              tooltip: 'Logout',
             ),
-      floatingActionButton: IconButton(
-        tooltip: 'Refresh',
-        onPressed: _processing ? null : _load,
-        icon: const Icon(Icons.refresh),
+          ],
+        ),
+        body: loading
+            ? const Center(child: CircularProgressIndicator())
+            : (error != null || d == null)
+            ? Center(child: Text(error ?? 'Data tidak ditemukan'))
+            : ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // === Header Identitas ===
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _ApplicantIdentity(
+                            id: d.externalId,
+                            name: d.applicantName,
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Status: ${friendlyStatusForPTL(d.toMap())}'),
+                          if ((d.aeName ?? '').isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text('Diajukan oleh: ${d.aeName!}'),
+                            ),
+                          if (d.priority)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 6),
+                              child: Text(
+                                'PRIORITAS',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+                  Text(
+                    'Dokumentasi:',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  MediaPreview(
+                    media: mediaCtrl
+                        .mediaOf(widget.requestId)
+                        .map((m) => m.toMap())
+                        .toList(),
+                  ),
+
+                  const SizedBox(height: 16),
+                  Text(
+                    'Catatan PTL (wajib untuk Tolak/Revisi):',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _noteC,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Tulis catatan review…',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _processing ? null : _revision,
+                          child: const Text('Revisi'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _processing ? null : _approve,
+                          child: const Text('Terima'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.red,
+                          ),
+                          onPressed: _processing ? null : _reject,
+                          child: const Text('Tolak'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+        floatingActionButton: IconButton(
+          tooltip: 'Refresh',
+          onPressed: _processing ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
       ),
     );
   }
