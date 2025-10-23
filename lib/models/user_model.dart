@@ -30,6 +30,7 @@ class AppUser {
   final String? email;
   final String? phone;
   final UserRole role;
+  final String? rslId;
   final DateTime? createdAt;
   final DateTime? lastLogin;
   final bool isActive;
@@ -40,6 +41,7 @@ class AppUser {
     this.name,
     this.email,
     this.phone,
+    this.rslId,
     this.createdAt,
     this.lastLogin,
     this.isActive = true,
@@ -53,6 +55,7 @@ class AppUser {
       email: m['email'] as String?,
       phone: m['phone'] as String?,
       role: roleFromString(m['role'] as String?),
+      rslId: m['rsl_id'] as String?,
       createdAt: dt(m['created_at'] as String?),
       lastLogin: dt(m['last_login'] as String?),
       isActive: (m['is_active'] as bool?) ?? true,
@@ -65,6 +68,7 @@ class AppUser {
     'email': email,
     'phone': phone,
     'role': roleToString(role),
+    'rsl_id': rslId,
     'created_at': createdAt?.toIso8601String(),
     'last_login': lastLogin?.toIso8601String(),
     'is_active': isActive,
@@ -76,6 +80,7 @@ class AppUser {
     String? email,
     String? phone,
     UserRole? role,
+    String? rslId,
     DateTime? createdAt,
     DateTime? lastLogin,
     bool? isActive,
@@ -86,6 +91,7 @@ class AppUser {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       role: role ?? this.role,
+      rslId: rslId ?? this.rslId,
       createdAt: createdAt ?? this.createdAt,
       lastLogin: lastLogin ?? this.lastLogin,
       isActive: isActive ?? this.isActive,

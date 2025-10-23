@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/theme.dart';
 import 'core/supabase_client.dart';
@@ -15,40 +16,51 @@ import 'state/media_provider.dart';
 
 import 'routing/app_router.dart';
 
+import 'package:intl/date_symbol_data_local.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Siapkan locale data untuk semua format tanggal (mis. 'id_ID')
+  await initializeDateFormatting('id_ID');
+
+  // Pakai helper milikmu (sudah ada di lib/core/supabase_client.dart)
   await initSupabase();
 
-  runApp(const MyApp());
+  // Repository
+  final requestsRepo = RequestsRepository(Supabase.instance.client);
+  final authRepo = AuthRepository(AuthService());
+
+  // Providers
+  final auth = AuthController(authRepo);
+  final requests = RequestController(requestsRepo);
+  final media = MediaController(requestsRepo);
+
+  // Router aplikasi kamu butuh auth/requests/media (sudah ada kelas AppRouter di project)
+  final router = AppRouter(auth: auth, requests: requests, media: media);
+
+  runApp(
+    _RootApp(auth: auth, requests: requests, media: media, router: router),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  final AuthController? _auth;
-  final RequestController? _requests;
-  final MediaController? _media;
-  final AppRouter? _router;
+/// Widget root, wiring Provider + MaterialApp.router
+class _RootApp extends StatelessWidget {
+  final AuthController auth;
+  final RequestController requests;
+  final MediaController media;
+  final AppRouter router;
 
-  const MyApp({
+  const _RootApp({
     super.key,
-    AuthController? auth,
-    RequestController? requests,
-    MediaController? media,
-    AppRouter? router,
-  }) : _auth = auth,
-       _requests = requests,
-       _media = media,
-       _router = router;
+    required this.auth,
+    required this.requests,
+    required this.media,
+    required this.router,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Default instances (agar widget_test bawaan Flutter tetap jalan)
-    final auth = _auth ?? AuthController(AuthRepository(AuthService()));
-    final reqRepo = RequestsRepository();
-    final requests = _requests ?? RequestController(reqRepo);
-    final media = _media ?? MediaController(reqRepo);
-    final router =
-        _router ?? AppRouter(auth: auth, requests: requests, media: media);
-
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthController>.value(value: auth),

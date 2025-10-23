@@ -52,10 +52,12 @@ class RequestModel {
   final bool priority;
 
   final String? ptlNoteLast;
+  final String? aeNoteLast;
 
   final DateTime? enqueuedAt;
   final String? reviewedBy; // uid PTL
   final DateTime? reviewStartedAt;
+  final DateTime? reviewHeartbeatAt;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -75,24 +77,34 @@ class RequestModel {
     this.applicantName,
     this.externalId,
     this.ptlNoteLast,
+    this.aeNoteLast,
     this.enqueuedAt,
     this.reviewedBy,
     this.reviewStartedAt,
+    this.reviewHeartbeatAt,
     this.closedAt,
     this.queuePos,
     this.aeName,
   });
 
   /// Menentukan display utama di list: jika externalId ada → pakai itu, kalau tidak → applicantName
-  String get displayApplicant =>
-      (externalId?.trim().isNotEmpty ?? false)
-          ? externalId!.trim()
-          : (applicantName?.trim().isNotEmpty ?? false)
-          ? applicantName!.trim()
-          : '-';
+  String get displayApplicant => (externalId?.trim().isNotEmpty ?? false)
+      ? externalId!.trim()
+      : (applicantName?.trim().isNotEmpty ?? false)
+      ? applicantName!.trim()
+      : '-';
 
-  bool get isBeingReviewed =>
-      status == RequestStatus.waitingReview && reviewedBy != null;
+  /// Dianggap sedang direview bila:
+  /// - status masih waiting_review
+  /// - sudah ada PTL yang memegang (`reviewedBy` != null)
+  /// - heartbeat masih "hidup" (< 20 detik terakhir)
+  bool get isBeingReviewed {
+    if (status != RequestStatus.waitingReview) return false;
+    if (reviewedBy == null) return false;
+    if (reviewHeartbeatAt == null) return false;
+    return DateTime.now().difference(reviewHeartbeatAt!) <
+        const Duration(seconds: 20);
+  }
 
   factory RequestModel.fromMap(Map<String, dynamic> m) {
     DateTime? dt(String? v) => (v == null) ? null : DateTime.tryParse(v);
@@ -105,16 +117,17 @@ class RequestModel {
       status: requestStatusFromString(m['status'] as String?),
       priority: (m['priority'] as bool?) ?? false,
       ptlNoteLast: m['ptl_note_last'] as String?,
+      aeNoteLast: m['ae_note_last'] as String?,
       enqueuedAt: dt(m['enqueued_at'] as String?),
       reviewedBy: m['reviewed_by'] as String?,
       reviewStartedAt: dt(m['review_started_at'] as String?),
+      reviewHeartbeatAt: dt(m['review_heartbeat_at'] as String?),
       createdAt: DateTime.parse(m['created_at'] as String),
       updatedAt: DateTime.parse(m['updated_at'] as String),
       closedAt: dt(m['closed_at'] as String?),
-      queuePos:
-          m['queue_pos'] is int
-              ? m['queue_pos'] as int?
-              : (m['queue_pos'] as num?)?.toInt(),
+      queuePos: m['queue_pos'] is int
+          ? m['queue_pos'] as int?
+          : (m['queue_pos'] as num?)?.toInt(),
       aeName: m['ae_name'] as String?,
     );
   }
@@ -127,9 +140,11 @@ class RequestModel {
     'status': requestStatusToString(status),
     'priority': priority,
     'ptl_note_last': ptlNoteLast,
+    'ae_note_last': aeNoteLast,
     'enqueued_at': enqueuedAt?.toIso8601String(),
     'reviewed_by': reviewedBy,
     'review_started_at': reviewStartedAt?.toIso8601String(),
+    'review_heartbeat_at': reviewHeartbeatAt?.toIso8601String(),
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
     'closed_at': closedAt?.toIso8601String(),
@@ -144,9 +159,11 @@ class RequestModel {
     RequestStatus? status,
     bool? priority,
     String? ptlNoteLast,
+    String? aeNoteLast,
     DateTime? enqueuedAt,
     String? reviewedBy,
     DateTime? reviewStartedAt,
+    DateTime? reviewHeartbeatAt,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? closedAt,
@@ -161,9 +178,11 @@ class RequestModel {
       status: status ?? this.status,
       priority: priority ?? this.priority,
       ptlNoteLast: ptlNoteLast ?? this.ptlNoteLast,
+      aeNoteLast: aeNoteLast ?? this.aeNoteLast,
       enqueuedAt: enqueuedAt ?? this.enqueuedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       reviewStartedAt: reviewStartedAt ?? this.reviewStartedAt,
+      reviewHeartbeatAt: reviewHeartbeatAt ?? this.reviewHeartbeatAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       closedAt: closedAt ?? this.closedAt,

@@ -126,12 +126,25 @@ class _AEFormPageState extends State<AEFormPage> {
 
     final created = await _reqSvc.createRequest(
       aeId: auth.user!.id,
+      rslId: auth.user!.rslId, // ⬅️ penting: bind ke RSL user AE
       applicantName: _nameC.text.trim().isEmpty ? null : _nameC.text.trim(),
       externalId: _extIdC.text.trim().isEmpty ? null : _extIdC.text.trim(),
       aeNote: _noteC.text.trim().isEmpty ? null : _noteC.text.trim(),
     );
 
     setState(() => _existing = created);
+
+    // Pastikan catatan AE tersimpan saat create (jika ada).
+    // Aman dipanggil di sini sekalipun service juga mendukung aeNote—hindari duplikasi by constraint/logika backend.
+    if (_noteC.text.trim().isNotEmpty) {
+      await Supabase.instance.client.from('request_notes').insert({
+        'request_id': created.id,
+        'author_id': auth.user!.id,
+        'role_snapshot': 'AE',
+        'note': _noteC.text.trim(),
+        'action': 'note', // wajib 'note' agar lolos constraint
+      });
+    }
     return created;
   }
 
@@ -152,6 +165,23 @@ class _AEFormPageState extends State<AEFormPage> {
     setState(() => _submitting = true);
     final auth = context.read<AuthController>();
     final mediaCtrl = context.read<MediaController>();
+
+    // ====== VALIDASI WAJIB: minimal 1 media (pending atau sudah terunggah) ======
+    final currentRid = widget.requestId ?? _existing?.id;
+    final alreadyUploaded = currentRid == null
+        ? const []
+        : mediaCtrl.mediaOf(currentRid);
+    final hasAtLeastOneMedia =
+        _pending.isNotEmpty || alreadyUploaded.isNotEmpty;
+    if (!hasAtLeastOneMedia) {
+      showSnack(
+        context,
+        'Wajib unggah minimal 1 media (foto/video).',
+        error: true,
+      );
+      if (mounted) setState(() => _submitting = false);
+      return;
+    }
 
     try {
       // 1) Pastikan request ada (auto create bila perlu)
@@ -249,14 +279,14 @@ class _AEFormPageState extends State<AEFormPage> {
                     TextFormField(
                       controller: _extIdC,
                       decoration: const InputDecoration(
-                        labelText: 'ID Pemohon (opsional)',
+                        labelText: 'ID Pemohon',
                       ),
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _nameC,
                       decoration: const InputDecoration(
-                        labelText: 'Nama Pemohon (opsional)',
+                        labelText: 'Nama Pemohon',
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -291,14 +321,14 @@ class _AEFormPageState extends State<AEFormPage> {
                       },
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: _pickMedia, // boleh pilih dulu
                             icon: const Icon(Icons.attach_file),
-                            label: const Text('Pilih Dokumentasi'),
+                            label: const Text('Upload'),
                           ),
                         ),
                         const SizedBox(width: 8),

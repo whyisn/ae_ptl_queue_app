@@ -14,8 +14,11 @@ class UsersRepository {
 
   /// Ambil profil user by id
   Future<AppUser?> getById(String userId) async {
-    final row =
-        await _supa.from('users').select().eq('id', userId).maybeSingle();
+    final row = await _supa
+        .from('users')
+        .select()
+        .eq('id', userId)
+        .maybeSingle();
     if (row == null) return null;
     return AppUser.fromMap(row);
   }
@@ -31,18 +34,17 @@ class UsersRepository {
   Future<AppUser> updateSelf({String? name, String? phone}) async {
     final uid = _supa.auth.currentUser?.id;
     if (uid == null) {
-      throw const AuthException('Tidak ada sesi login');
+      throw AuthException('Tidak ada sesi login');
     }
-    final row =
-        await _supa
-            .from('users')
-            .update({
-              if (name != null) 'name': name,
-              if (phone != null) 'phone': phone,
-            })
-            .eq('id', uid)
-            .select()
-            .single();
+    final row = await _supa
+        .from('users')
+        .update({
+          if (name != null) 'name': name,
+          if (phone != null) 'phone': phone,
+        })
+        .eq('id', uid)
+        .select()
+        .single();
     return AppUser.fromMap(row);
   }
 
@@ -52,20 +54,22 @@ class UsersRepository {
     required UserRole role,
   }) async {
     // Catatan: pastikan policy RLS mengizinkan ADMIN/PTL melakukan ini.
-    final row =
-        await _supa
-            .from('users')
-            .update({'role': roleToString(role)})
-            .eq('id', userId)
-            .select()
-            .single();
+    final row = await _supa
+        .from('users')
+        .update({'role': roleToString(role)})
+        .eq('id', userId)
+        .select()
+        .single();
     return AppUser.fromMap(row);
   }
 
   /// Cari user by email (untuk admin tool)
   Future<AppUser?> findByEmail(String email) async {
-    final row =
-        await _supa.from('users').select().eq('email', email).maybeSingle();
+    final row = await _supa
+        .from('users')
+        .select()
+        .eq('email', email)
+        .maybeSingle();
     if (row == null) return null;
     return AppUser.fromMap(row);
   }

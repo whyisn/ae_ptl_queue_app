@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart'; // <-- TAMBAHKAN BARIS INI
 
 import '../models/request_model.dart';
 
@@ -6,11 +7,45 @@ import '../models/request_model.dart';
 class RequestsService {
   final supabase = Supabase.instance.client;
 
+  /// Flatten join & normalisasi kolom waktu menjadi String ISO agar
+  /// aman untuk `RequestModel.fromMap` (yang mengharapkan String).
+  Map<String, dynamic> _flat(Map<String, dynamic> src) {
+    final m = Map<String, dynamic>.from(src);
+
+    // Ambil queue_pos dari view (join left)
+    final vw = m['v_waiting_queue_with_pos'];
+    if (vw is Map && vw['queue_pos'] != null) {
+      m['queue_pos'] = vw['queue_pos'];
+    }
+
+    // Ambil ae_name dari join users
+    final u = m['users'];
+    if (u is Map && u['name'] != null) {
+      m['ae_name'] = u['name'];
+    }
+
+    // Normalisasi timestamp → String ISO
+    String? iso(dynamic v) => (v == null)
+        ? null
+        : (v is String ? v : (v as DateTime).toIso8601String());
+    for (final k in const [
+      'created_at',
+      'updated_at',
+      'enqueued_at',
+      'review_started_at',
+      'closed_at',
+    ]) {
+      m[k] = iso(m[k]);
+    }
+    return m;
+  }
+
   /// Buat permohonan baru.
   /// - `applicantName` ATAU `externalId` boleh null (salah satu wajib di UI).
   /// - Jika `aeNote` diisi, simpan ke `request_notes` dengan action = 'note'.
   Future<RequestModel> createRequest({
     required String aeId,
+    String? rslId,
     String? applicantName,
     String? externalId,
     String? aeNote,
@@ -19,6 +54,7 @@ class RequestsService {
         .from('requests')
         .insert({
           'ae_id': aeId,
+          if (rslId != null) 'rsl_id': rslId,
           'applicant_name': applicantName,
           'external_id': externalId,
           'status': 'waiting_review',
@@ -39,34 +75,75 @@ class RequestsService {
       });
     }
 
-    return RequestModel.fromMap(data);
+    // return RequestModel.fromMap(data);
+    return RequestModel.fromMap(_flat(Map<String, dynamic>.from(data)));
   }
 
   /// Ambil request milik AE saat ini (punya tombol edit/hapus di UI AE).
+  // Future<List<RequestModel>> fetchMyRequests(String aeId) async {
+  //   final rows = await supabase
+  //       .from('requests')
+  //       .select()
+  //       .eq('ae_id', aeId)
+  //       .order('updated_at', ascending: false);
+
+  //   return rows.map<RequestModel>((m) => RequestModel.fromMap(m)).toList();
+  // }
+
   Future<List<RequestModel>> fetchMyRequests(String aeId) async {
     final rows = await supabase
         .from('requests')
-        .select()
+        .select(r'''
+          id, ae_id, applicant_name, external_id, status, priority,
+          ptl_note_last, ae_note_last, enqueued_at,
+          reviewed_by, review_started_at, created_at, updated_at, closed_at,
+          v_waiting_queue_with_pos!left(queue_pos),
+          users!requests_ae_id_fkey(name)
+        ''')
         .eq('ae_id', aeId)
-        .order('updated_at', ascending: false);
+        .order('created_at', ascending: false);
 
-    return rows.map<RequestModel>((m) => RequestModel.fromMap(m)).toList();
+    debugPrint(
+      '>>> B. Hasil Supabase Rows (raw count): ${(rows as List).length}',
+    );
+
+    return (rows as List)
+        .map((e) => RequestModel.fromMap(_flat(Map<String, dynamic>.from(e))))
+        .toList();
   }
 
   /// Ambil seluruh antrian untuk PTL dari view (sudah ada `queue_pos`).
   Future<List<RequestModel>> fetchAllForPTL() async {
+    // final rows = await supabase.from('v_waiting_queue_with_pos').select();
+    // return rows.map<RequestModel>((m) => RequestModel.fromMap(m)).toList();
     final rows = await supabase.from('v_waiting_queue_with_pos').select();
-    return rows.map<RequestModel>((m) => RequestModel.fromMap(m)).toList();
+    return (rows as List)
+        .map((e) => RequestModel.fromMap(_flat(Map<String, dynamic>.from(e))))
+        .toList();
   }
 
   /// Ambil detail request.
   Future<RequestModel?> fetchRequestById(String id) async {
+    // final row = await supabase
+    //     .from('requests')
+    //     .select()
+    //     .eq('id', id)
+    //     .maybeSingle();
+    // return row == null ? null : RequestModel.fromMap(row);
     final row = await supabase
         .from('requests')
-        .select()
+        .select(r'''
+          id, ae_id, applicant_name, external_id, status, priority,
+          ptl_note_last, ae_note_last, enqueued_at,
+          reviewed_by, review_started_at, created_at, updated_at, closed_at,
+          v_waiting_queue_with_pos!left(queue_pos),
+          users!requests_ae_id_fkey(name)
+        ''')
         .eq('id', id)
         .maybeSingle();
-    return row == null ? null : RequestModel.fromMap(row);
+    return row == null
+        ? null
+        : RequestModel.fromMap(_flat(Map<String, dynamic>.from(row)));
   }
 
   /// Tandai sedang direview oleh PTL (untuk badge “Sedang Direview” di semua AE).
@@ -88,7 +165,7 @@ class RequestsService {
         'author_id': supabase.auth.currentUser!.id,
         'role_snapshot': 'PTL',
         'note': note.trim(),
-        'action': 'approved',
+        'action': 'approve',
       });
     }
     await supabase
@@ -110,7 +187,7 @@ class RequestsService {
       'author_id': supabase.auth.currentUser!.id,
       'role_snapshot': 'PTL',
       'note': note.trim(),
-      'action': 'rejected',
+      'action': 'reject',
     });
     await supabase
         .from('requests')
@@ -131,7 +208,7 @@ class RequestsService {
       'author_id': supabase.auth.currentUser!.id,
       'role_snapshot': 'PTL',
       'note': note.trim(),
-      'action': 'ask_revision',
+      'action': 'revision',
     });
     await supabase
         .from('requests')

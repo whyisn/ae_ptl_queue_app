@@ -15,11 +15,11 @@ class AuthController extends ChangeNotifier {
         case AuthChangeEvent.initialSession:
         case AuthChangeEvent.signedIn:
         case AuthChangeEvent.userUpdated:
+        case AuthChangeEvent.tokenRefreshed:
           await _loadCurrentUser();
           break;
         case AuthChangeEvent.signedOut:
         case AuthChangeEvent.passwordRecovery:
-        case AuthChangeEvent.tokenRefreshed:
         default:
           _user = null;
           notifyListeners();
