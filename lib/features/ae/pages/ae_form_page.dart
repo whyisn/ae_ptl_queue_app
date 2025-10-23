@@ -321,14 +321,14 @@ class _AEFormPageState extends State<AEFormPage> {
                       },
                     ),
 
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: _pickMedia, // boleh pilih dulu
                             icon: const Icon(Icons.attach_file),
-                            label: const Text('Pilih Dokumentasi'),
+                            label: const Text('Upload'),
                           ),
                         ),
                         const SizedBox(width: 8),

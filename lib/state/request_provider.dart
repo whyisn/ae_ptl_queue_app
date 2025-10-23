@@ -13,6 +13,8 @@ class RequestController extends ChangeNotifier {
   // ==== Realtime support (v1 style) ====
   StreamSubscription<List<Map<String, dynamic>>>? _reqSub;
   Timer? _debounce; // untuk menahan reload beruntun
+  // heartbeat PTL detail
+  Timer? _hb;
   String? _aeIdCache;
   String? _rslIdCache;
 
@@ -43,7 +45,16 @@ class RequestController extends ChangeNotifier {
     loadingMy = true;
     notifyListeners();
     try {
+      // myRequests = await _repo.fetchMyRequests(aeId);
       myRequests = await _repo.fetchMyRequests(aeId);
+      // Guard: buang approved/rejected jika ada yang lolos
+      myRequests = myRequests
+          .where(
+            (r) =>
+                r.status == RequestStatus.waitingReview ||
+                r.status == RequestStatus.revisionRequested,
+          )
+          .toList();
       debugPrint(
         '>>> C. Jumlah RequestModel di Provider: ${myRequests.length}',
       );
@@ -96,11 +107,17 @@ class RequestController extends ChangeNotifier {
     // Batalkan subscription lama agar tidak double-subscribe
     _reqSub?.cancel();
 
-    // Gunakan stream API: akan push data setiap ada perubahan (INSERT/UPDATE/DELETE)
-    final stream = Supabase.instance.client
+    // // Gunakan stream API: akan push data setiap ada perubahan (INSERT/UPDATE/DELETE)
+    // final stream = Supabase.instance.client
+    //     .from('requests')
+    //     .stream(primaryKey: ['id'])
+    //     .eq('rsl_id', rslId); // filter berdasar RSL
+
+    final base = Supabase.instance.client
         .from('requests')
-        .stream(primaryKey: ['id'])
-        .eq('rsl_id', rslId); // filter berdasar RSL
+        .stream(primaryKey: ['id']);
+    // Jika rslId kosong → subscribe global (supaya tetap realtime)
+    final stream = (rslId.isEmpty) ? base : base.eq('rsl_id', rslId);
 
     _reqSub = stream.listen((rows) {
       // Kita tidak pakai 'rows' langsung; tetap trigger reload ter-debounce
@@ -138,6 +155,7 @@ class RequestController extends ChangeNotifier {
   @override
   void dispose() {
     _debounce?.cancel();
+    _hb?.cancel();
     _reqSub?.cancel();
     super.dispose();
   }
@@ -155,6 +173,14 @@ class RequestController extends ChangeNotifier {
       } else {
         myRequests = await _repo.fetchMyRequests(user.id);
       }
+      // Guard: buang approved/rejected jika ada yang lolos
+      myRequests = myRequests
+          .where(
+            (r) =>
+                r.status == RequestStatus.waitingReview ||
+                r.status == RequestStatus.revisionRequested,
+          )
+          .toList();
       errorMy = null;
     } catch (e) {
       errorMy = e.toString();
@@ -232,6 +258,23 @@ class RequestController extends ChangeNotifier {
     await _repo.markBeingReviewed(requestId);
     // setelah lock, refresh queue agar banner konsisten di semua halaman
     await loadPTLQueueByRsl(_rslIdCache);
+  }
+
+  /// Dipanggil dari PTL detail untuk memompa heartbeat tiap 10 dtk
+  void startHeartbeat(String requestId) {
+    _hb?.cancel();
+    _hb = Timer.periodic(const Duration(seconds: 10), (_) {
+      _repo.heartbeatReview(requestId);
+    });
+  }
+
+  void stopHeartbeat() {
+    _hb?.cancel();
+    _hb = null;
+  }
+
+  Future<void> releaseIfStillOpen(String requestId) async {
+    await _repo.releaseIfStillOpen(requestId);
   }
 
   /// Lepaskan lock jika PTL keluar tanpa keputusan

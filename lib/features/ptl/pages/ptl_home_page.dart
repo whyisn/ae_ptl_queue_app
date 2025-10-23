@@ -55,6 +55,20 @@ class _PTLHomePageState extends State<PTLHomePage> {
         title: const Text('Antrian Review PTL'),
         actions: [
           IconButton(
+            tooltip: 'Refresh',
+            onPressed: () async {
+              final user = context.read<AuthController>().user;
+              if (user != null) {
+                await context.read<RequestController>().loadPTLQueueByRsl(
+                  user.rslId,
+                );
+              } else {
+                await context.read<RequestController>().loadPTLQueue();
+              }
+            },
+            icon: const Icon(Icons.refresh),
+          ),
+          IconButton(
             tooltip: 'Logout',
             onPressed: () => auth.logout(),
             icon: const Icon(Icons.logout),
@@ -82,12 +96,21 @@ class _PTLHomePageState extends State<PTLHomePage> {
                   await req.loadPTLQueue();
                 }
               },
+              // Pastikan tetap "scrollable" saat kosong agar bisa ditarik untuk refresh
               child: items.isEmpty
-                  ? const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: Text('Belum ada antrian yang menunggu review.'),
-                      ),
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 240),
+                        Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text(
+                              'Belum ada antrian yang menunggu review.',
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 520),
+                      ],
                     )
                   : ListView.builder(
                       itemCount: items.length,

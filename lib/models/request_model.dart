@@ -57,6 +57,7 @@ class RequestModel {
   final DateTime? enqueuedAt;
   final String? reviewedBy; // uid PTL
   final DateTime? reviewStartedAt;
+  final DateTime? reviewHeartbeatAt;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -80,6 +81,7 @@ class RequestModel {
     this.enqueuedAt,
     this.reviewedBy,
     this.reviewStartedAt,
+    this.reviewHeartbeatAt,
     this.closedAt,
     this.queuePos,
     this.aeName,
@@ -92,8 +94,17 @@ class RequestModel {
       ? applicantName!.trim()
       : '-';
 
-  bool get isBeingReviewed =>
-      status == RequestStatus.waitingReview && reviewedBy != null;
+  /// Dianggap sedang direview bila:
+  /// - status masih waiting_review
+  /// - sudah ada PTL yang memegang (`reviewedBy` != null)
+  /// - heartbeat masih "hidup" (< 20 detik terakhir)
+  bool get isBeingReviewed {
+    if (status != RequestStatus.waitingReview) return false;
+    if (reviewedBy == null) return false;
+    if (reviewHeartbeatAt == null) return false;
+    return DateTime.now().difference(reviewHeartbeatAt!) <
+        const Duration(seconds: 20);
+  }
 
   factory RequestModel.fromMap(Map<String, dynamic> m) {
     DateTime? dt(String? v) => (v == null) ? null : DateTime.tryParse(v);
@@ -110,6 +121,7 @@ class RequestModel {
       enqueuedAt: dt(m['enqueued_at'] as String?),
       reviewedBy: m['reviewed_by'] as String?,
       reviewStartedAt: dt(m['review_started_at'] as String?),
+      reviewHeartbeatAt: dt(m['review_heartbeat_at'] as String?),
       createdAt: DateTime.parse(m['created_at'] as String),
       updatedAt: DateTime.parse(m['updated_at'] as String),
       closedAt: dt(m['closed_at'] as String?),
@@ -132,6 +144,7 @@ class RequestModel {
     'enqueued_at': enqueuedAt?.toIso8601String(),
     'reviewed_by': reviewedBy,
     'review_started_at': reviewStartedAt?.toIso8601String(),
+    'review_heartbeat_at': reviewHeartbeatAt?.toIso8601String(),
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
     'closed_at': closedAt?.toIso8601String(),
@@ -150,6 +163,7 @@ class RequestModel {
     DateTime? enqueuedAt,
     String? reviewedBy,
     DateTime? reviewStartedAt,
+    DateTime? reviewHeartbeatAt,
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? closedAt,
@@ -168,6 +182,7 @@ class RequestModel {
       enqueuedAt: enqueuedAt ?? this.enqueuedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       reviewStartedAt: reviewStartedAt ?? this.reviewStartedAt,
+      reviewHeartbeatAt: reviewHeartbeatAt ?? this.reviewHeartbeatAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       closedAt: closedAt ?? this.closedAt,

@@ -46,9 +46,20 @@ String formatDateTime(DateTime? dt, {bool withTime = true}) {
 
 /// Map status dari DB → label ramah untuk AE
 String friendlyStatusForAE(Map<String, dynamic> row) {
+  // final s = (row['status'] as String?) ?? '';
+  // final reviewedBy = row['reviewed_by'];
+  // if (s == 'waiting_review' && reviewedBy != null) return 'Sedang Direview';
   final s = (row['status'] as String?) ?? '';
   final reviewedBy = row['reviewed_by'];
-  if (s == 'waiting_review' && reviewedBy != null) return 'Sedang Direview';
+  final hb = row['review_heartbeat_at'] as String?;
+  bool active = false;
+  if (hb != null) {
+    final t = DateTime.tryParse(hb);
+    if (t != null)
+      active = DateTime.now().difference(t) < const Duration(seconds: 20);
+  }
+  if (s == 'waiting_review' && reviewedBy != null && active)
+    return 'Sedang Direview';
   switch (s) {
     case 'waiting_review':
       return 'Menunggu Review';
@@ -78,12 +89,23 @@ String friendlyStatusForPTL(Map<String, dynamic> row) {
   //   default:
   //     return s;
   // }
+  // final s = (row['status'] as String?) ?? '';
+  // final reviewedBy = row['reviewed_by'];
+  // // "Sedang Direview" HANYA jika sudah dipegang PTL (reviewed_by != null)
+  // if (reviewedBy != null && s == 'waiting_review') {
+  //   return 'Sedang Direview';
+  // }
   final s = (row['status'] as String?) ?? '';
   final reviewedBy = row['reviewed_by'];
-  // "Sedang Direview" HANYA jika sudah dipegang PTL (reviewed_by != null)
-  if (reviewedBy != null && s == 'waiting_review') {
-    return 'Sedang Direview';
+  final hb = row['review_heartbeat_at'] as String?;
+  bool active = false;
+  if (hb != null) {
+    final t = DateTime.tryParse(hb);
+    if (t != null)
+      active = DateTime.now().difference(t) < const Duration(seconds: 20);
   }
+  if (s == 'waiting_review' && reviewedBy != null && active)
+    return 'Sedang Direview';
   switch (s) {
     case 'waiting_review':
       return 'Menunggu Review';

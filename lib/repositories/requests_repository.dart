@@ -19,11 +19,11 @@ class RequestsRepository {
         .select('''
           id, ae_id, applicant_name, external_id, status, priority,
           ptl_note_last, enqueued_at, reviewed_by, review_started_at,
-          created_at, updated_at, closed_at
+          review_heartbeat_at, created_at, updated_at, closed_at
         ''')
         .eq('ae_id', aeId)
         // hanya status aktif (tidak menampilkan approved/rejected)
-        .inFilter('status', ['waiting_review', 'revision_requested', 'draft'])
+        .inFilter('status', ['waiting_review', 'revision_requested'])
         .order('created_at', ascending: true);
 
     final list = (baseRows as List).cast<Map<String, dynamic>>();
@@ -157,10 +157,12 @@ class RequestsRepository {
         .select('''
         id, ae_id, applicant_name, external_id, status, priority,
         ptl_note_last, enqueued_at, reviewed_by, review_started_at,
-        created_at, updated_at, closed_at, rsl_id
+        review_heartbeat_at, created_at, updated_at, closed_at, rsl_id
       ''')
         .eq('ae_id', aeId) // FILTER 1
         .eq('rsl_id', rslId) // FILTER 2 — tetap sebelum order
+        // HANYA status aktif untuk daftar AE:
+        .inFilter('status', ['waiting_review', 'revision_requested'])
         .order('created_at', ascending: true);
 
     final list = (baseRows as List).cast<Map<String, dynamic>>();
@@ -177,9 +179,7 @@ class RequestsRepository {
       final idConds = ids.map((id) => 'id.eq.$id').join(',');
       final posRows = await _sb
           .from('v_waiting_queue_with_pos')
-          .select(
-            'id, queue_pos, ae_name',
-          ) // tambahkan rsl_id jika view sudah ada
+          .select('id, queue_pos, ae_name')
           .or(idConds);
 
       for (final r in (posRows as List).cast<Map<String, dynamic>>()) {
@@ -228,7 +228,7 @@ class RequestsRepository {
           id, ae_id, applicant_name, external_id, status, priority,
           ptl_note_last, enqueued_at, reviewed_by, review_started_at,
           created_at, updated_at, closed_at,
-          queue_pos, ae_name
+          queue_pos, ae_name, rsl_id, is_reviewing
         ''')
         .order('queue_pos', ascending: true);
 
@@ -266,7 +266,7 @@ class RequestsRepository {
         id, ae_id, applicant_name, external_id, status, priority,
         ptl_note_last, enqueued_at, reviewed_by, review_started_at,
         created_at, updated_at, closed_at,
-        queue_pos, ae_name, rsl_id
+        queue_pos, ae_name, rsl_id, is_reviewing
       ''')
         .eq('rsl_id', rslId) // FILTER DULU
         .order('queue_pos', ascending: true); // BARU ORDER
@@ -283,7 +283,7 @@ class RequestsRepository {
         .select('''
           id, ae_id, applicant_name, external_id, status, priority,
           ptl_note_last, enqueued_at, reviewed_by, review_started_at,
-          created_at, updated_at, closed_at
+          review_heartbeat_at, created_at, updated_at, closed_at
         ''')
         .eq('id', id)
         .limit(1);
@@ -380,15 +380,41 @@ class RequestsRepository {
         .update({
           'reviewed_by': _sb.auth.currentUser?.id,
           'review_started_at': DateTime.now().toIso8601String(),
+          'review_heartbeat_at': DateTime.now().toIso8601String(),
         })
         .eq('id', id);
+  }
+
+  /// Perbarui heartbeat berkala saat layar PTL detail terbuka
+  Future<void> heartbeatReview(String id) async {
+    await _sb
+        .from('requests')
+        .update({'review_heartbeat_at': DateTime.now().toIso8601String()})
+        .eq('id', id);
+  }
+
+  Future<void> releaseIfStillOpen(String id) async {
+    // Kembalikan ke waiting jika belum diputuskan
+    await _sb
+        .from('requests')
+        .update({
+          'reviewed_by': null,
+          'review_started_at': null,
+          'review_heartbeat_at': null,
+        })
+        .eq('id', id)
+        .eq('status', 'waiting_review');
   }
 
   /// Lepaskan lock review (dipanggil saat PTL keluar tanpa keputusan)
   Future<void> releaseReview(String id) async {
     await _sb
         .from('requests')
-        .update({'reviewed_by': null, 'review_started_at': null})
+        .update({
+          'reviewed_by': null,
+          'review_started_at': null,
+          'review_heartbeat_at': null,
+        })
         .eq('id', id)
         .eq('status', 'waiting_review'); // hanya untuk yang masih waiting
   }

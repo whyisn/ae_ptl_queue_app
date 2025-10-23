@@ -213,66 +213,123 @@ class _FullscreenViewerState extends State<_FullscreenViewer> {
     final pos = _vc!.value.position;
     final dur = _vc!.value.duration;
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        AspectRatio(
-          aspectRatio: _vc!.value.aspectRatio == 0
-              ? (16 / 9)
-              : _vc!.value.aspectRatio,
-          child: VideoPlayer(_vc!),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            IconButton(
-              color: Colors.white,
-              onPressed: () => _vc!.seekTo(pos - const Duration(seconds: 10)),
-              icon: const Icon(Icons.replay_10),
-            ),
-            IconButton(
-              color: Colors.white,
-              onPressed: () {
-                if (_vc!.value.isPlaying) {
-                  _vc!.pause();
-                } else {
-                  _vc!.play();
-                }
-                setState(() {});
-              },
-              icon: Icon(_vc!.value.isPlaying ? Icons.pause : Icons.play_arrow),
-            ),
-            IconButton(
-              color: Colors.white,
-              onPressed: () => _vc!.seekTo(pos + const Duration(seconds: 10)),
-              icon: const Icon(Icons.forward_10),
-            ),
-          ],
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            children: [
-              Slider(
-                value: pos.inMilliseconds
-                    .clamp(0, dur.inMilliseconds)
-                    .toDouble(),
-                max: (dur.inMilliseconds == 0 ? 1 : dur.inMilliseconds)
-                    .toDouble(),
-                onChanged: (v) =>
-                    _vc!.seekTo(Duration(milliseconds: v.toInt())),
-                activeColor: Colors.white,
-                inactiveColor: Colors.white24,
+    // return Column(
+    //   mainAxisAlignment: MainAxisAlignment.center,
+    //   children: [
+    //     AspectRatio(
+    //       aspectRatio: _vc!.value.aspectRatio == 0
+    //           ? (16 / 9)
+    //           : _vc!.value.aspectRatio,
+    //       child: VideoPlayer(_vc!),
+    //     ),
+    //     const SizedBox(height: 8),
+    return SafeArea(
+      bottom: true,
+      child: Column(
+        children: [
+          // Ambil ruang tersisa untuk video agar tidak overflow
+          Expanded(
+            child: Center(
+              child: AspectRatio(
+                aspectRatio: _vc!.value.aspectRatio == 0
+                    ? (16 / 9)
+                    : _vc!.value.aspectRatio,
+                child: VideoPlayer(_vc!),
               ),
-              Text(
-                '${_fmt(pos)} / ${_fmt(dur)}',
-                style: const TextStyle(color: Colors.white70),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                color: Colors.white,
+                // onPressed: () => _vc!.seekTo(pos - const Duration(seconds: 10)),
+                onPressed: () => _vc!.seekTo(
+                  Duration(
+                    milliseconds: (pos - const Duration(seconds: 3))
+                        .inMilliseconds
+                        .clamp(0, dur.inMilliseconds),
+                  ),
+                ),
+                icon: const Icon(Icons.replay_10),
+              ),
+              IconButton(
+                color: Colors.white,
+                onPressed: () {
+                  if (_vc!.value.isPlaying) {
+                    _vc!.pause();
+                  } else {
+                    _vc!.play();
+                  }
+                  setState(() {});
+                },
+                icon: Icon(
+                  _vc!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+                ),
+              ),
+              IconButton(
+                color: Colors.white,
+                // onPressed: () => _vc!.seekTo(pos + const Duration(seconds: 10)),
+                onPressed: () => _vc!.seekTo(
+                  Duration(
+                    milliseconds: (pos + const Duration(seconds: 3))
+                        .inMilliseconds
+                        .clamp(0, dur.inMilliseconds),
+                  ),
+                ),
+                icon: const Icon(Icons.forward_10),
               ),
             ],
           ),
-        ),
-      ],
+          //     Padding(
+          //       padding: const EdgeInsets.symmetric(horizontal: 16),
+          //       child: Column(
+          //         children: [
+          //           Slider(
+          //             value: pos.inMilliseconds
+          //                 .clamp(0, dur.inMilliseconds)
+          //                 .toDouble(),
+          //             max: (dur.inMilliseconds == 0 ? 1 : dur.inMilliseconds)
+          //                 .toDouble(),
+          //             onChanged: (v) =>
+          //                 _vc!.seekTo(Duration(milliseconds: v.toInt())),
+          //             activeColor: Colors.white,
+          //             inactiveColor: Colors.white24,
+          //           ),
+          //           Text(
+          //             '${_fmt(pos)} / ${_fmt(dur)}',
+          //             style: const TextStyle(color: Colors.white70),
+          //           ),
+          //         ],
+          //       ),
+          //     ),
+          //   ],
+          // );
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              children: [
+                Slider(
+                  value: pos.inMilliseconds
+                      .clamp(0, dur.inMilliseconds)
+                      .toDouble(),
+                  max: (dur.inMilliseconds == 0 ? 1 : dur.inMilliseconds)
+                      .toDouble(),
+                  onChanged: (v) =>
+                      _vc!.seekTo(Duration(milliseconds: v.toInt())),
+                  activeColor: Colors.white,
+                  inactiveColor: Colors.white24,
+                ),
+                Text(
+                  '${_fmt(pos)} / ${_fmt(dur)}',
+                  style: const TextStyle(color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

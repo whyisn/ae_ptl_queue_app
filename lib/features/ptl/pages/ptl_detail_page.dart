@@ -39,6 +39,8 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
 
       // tandai sedang direview
       await reqCtrl.markBeingReviewed(widget.requestId);
+      // mulai heartbeat agar semua AE melihat "Sedang Direview"
+      reqCtrl.startHeartbeat(widget.requestId);
 
       await reqCtrl.loadDetail(widget.requestId);
       await mediaCtrl.loadMedia(widget.requestId);
@@ -118,6 +120,10 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
   @override
   void dispose() {
     _noteC.dispose();
+    // hentikan heartbeat
+    context.read<RequestController>().stopHeartbeat();
+    // Lepaskan bila belum diputuskan (best-effort; cron tetap jadi fallback)
+    context.read<RequestController>().releaseIfStillOpen(widget.requestId);
     super.dispose();
   }
 
@@ -125,6 +131,7 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
     // Jika belum mengambil keputusan, lepaskan lock
     if (!_decided) {
       final reqCtrl = context.read<RequestController>();
+      reqCtrl.stopHeartbeat();
       await reqCtrl.releaseReview(widget.requestId);
     }
     return true;
@@ -143,6 +150,11 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
         appBar: AppBar(
           title: const Text('Detail Permohonan (PTL)'),
           actions: [
+            IconButton(
+              tooltip: 'Refresh',
+              onPressed: _processing ? null : _load,
+              icon: const Icon(Icons.refresh),
+            ),
             IconButton(
               onPressed: () => auth.logout(),
               icon: const Icon(Icons.logout),
@@ -245,11 +257,6 @@ class _PTLDetailPageState extends State<PTLDetailPage> {
                   ),
                 ],
               ),
-        floatingActionButton: IconButton(
-          tooltip: 'Refresh',
-          onPressed: _processing ? null : _load,
-          icon: const Icon(Icons.refresh),
-        ),
       ),
     );
   }
