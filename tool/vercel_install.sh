@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-# Pastikan tools ada
-if ! command -v xz >/dev/null 2>&1; then
-  # Beberapa image Vercel sudah punya xz; kalau tidak ada, install cepat
-  apt-get update && apt-get install -y xz-utils
-fi
+# Install dependensi yang mungkin dibutuhkan
+apt-get update && apt-get install -y xz-utils git curl ca-certificates
 
-# Unduh Flutter SDK dan export ke PATH
-FLUTTER_URL="https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.24.0-stable.tar.xz"
-curl -L "$FLUTTER_URL" | tar -xJ
+# Ambil Flutter stable terbaru
+git clone https://github.com/flutter/flutter.git -b stable
+# Tandai folder flutter sebagai safe.directory agar git tidak protes
+git config --global --add safe.directory "$(pwd)/flutter"
+
 export PATH="$PATH:$PWD/flutter/bin"
 
 flutter --version
+dart --version
+
+# Enable web & ambil dependency
 flutter config --enable-web
 flutter pub get
