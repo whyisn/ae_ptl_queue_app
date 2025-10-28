@@ -1,6 +1,6 @@
-# ae_ptl_queue_app
+# AE • PTL Queue
 
-A new Flutter project.
+Sistem Antrian Permohonan
 
 ## Getting Started
 
