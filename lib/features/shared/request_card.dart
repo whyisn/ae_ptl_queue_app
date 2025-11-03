@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// import '../../core/utils.dart';
+import '../../core/utils.dart';
 import '../../models/request_model.dart';
 import 'status_badge.dart';
 
@@ -25,9 +25,36 @@ class RequestCard extends StatelessWidget {
     return Card(
       child: ListTile(
         onTap: onTap,
-        title: Text(
-          model.displayApplicant,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+        // title: Text(
+        //   model.displayApplicant,
+        //   style: const TextStyle(fontWeight: FontWeight.w600),
+        // ),
+        title: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onLongPress: () => copyToClipboard(
+                  context,
+                  model.displayApplicant,
+                  label: 'ID/Nama',
+                ),
+                child: Text(
+                  model.displayApplicant,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Salin',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.copy, size: 18),
+              onPressed: () => copyToClipboard(
+                context,
+                model.displayApplicant,
+                label: 'ID/Nama',
+              ),
+            ),
+          ],
         ),
         subtitle: Padding(
           padding: const EdgeInsets.only(top: 6),

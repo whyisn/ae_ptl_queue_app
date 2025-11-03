@@ -281,25 +281,87 @@ class _ApplicantIdentity extends StatelessWidget {
       );
     }
 
+    // if (hasId && hasName) {
+    //   return Row(
+    //     children: [
+    //       Text(
+    //         idStr,
+    //         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+    //       ),
+    //       const SizedBox(width: 8),
+    //       const Text('•'),
+    //       const SizedBox(width: 8),
+    //       Text(nameStr, style: const TextStyle(fontSize: 16)),
+    //     ],
+    //   );
+    // }
+
     if (hasId && hasName) {
       return Row(
         children: [
-          Text(
-            idStr,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          GestureDetector(
+            onLongPress: () => copyToClipboard(
+              context,
+              idStr,
+              label: 'ID Pemohon',
+            ),
+            child: Text(
+              idStr,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Salin ID',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.copy, size: 18),
+            onPressed: () => copyToClipboard(context, idStr, label: 'ID Pemohon'),
           ),
           const SizedBox(width: 8),
           const Text('•'),
           const SizedBox(width: 8),
-          Text(nameStr, style: const TextStyle(fontSize: 16)),
+          Expanded(
+            child: GestureDetector(
+              onLongPress: () =>
+                  copyToClipboard(context, nameStr, label: 'Nama Pemohon'),
+              child: Text(nameStr, style: const TextStyle(fontSize: 16)),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Salin Nama',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.copy, size: 18),
+            onPressed: () =>
+                copyToClipboard(context, nameStr, label: 'Nama Pemohon'),
+          ),
         ],
       );
     }
 
     final text = hasId ? idStr : nameStr;
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+    // return Text(
+    //   text,
+    //   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+    // );
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onLongPress: () =>
+                copyToClipboard(context, text, label: 'ID/Nama'),
+            child: Text(
+              text,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+        IconButton(
+          tooltip: 'Salin',
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.copy, size: 18),
+          onPressed: () => copyToClipboard(context, text, label: 'ID/Nama'),
+        ),
+      ],
     );
   }
 }

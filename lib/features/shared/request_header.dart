@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/utils.dart';
 import '../../models/request_model.dart';
 
 class RequestHeaderCard extends StatelessWidget {
@@ -34,12 +35,69 @@ class RequestHeaderCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (identity.isNotEmpty)
-              RichText(
-                text: TextSpan(style: t.bodyMedium, children: identity),
-              )
-            else
+            // if (identity.isNotEmpty)
+            //   RichText(
+            //     text: TextSpan(style: t.bodyMedium, children: identity),
+            //   )
+            // else
+            if ((req.externalId ?? '').isEmpty && (req.applicantName ?? '').isEmpty)
               Text('-', style: t.titleMedium),
+            if ((req.externalId ?? '').isNotEmpty || (req.applicantName ?? '').isNotEmpty)
+              Row(
+                children: [
+                  if ((req.externalId ?? '').isNotEmpty) ...[
+                    GestureDetector(
+                      onLongPress: () => copyToClipboard(
+                        context,
+                        req.externalId!,
+                        label: 'ID Pemohon',
+                      ),
+                      child: Text(
+                        req.externalId!,
+                        style: t.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Salin ID',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.copy, size: 18),
+                      onPressed: () => copyToClipboard(
+                        context,
+                        req.externalId!,
+                        label: 'ID Pemohon',
+                      ),
+                    ),
+                  ],
+                  if ((req.externalId ?? '').isNotEmpty &&
+                      (req.applicantName ?? '').isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    const Text('•'),
+                    const SizedBox(width: 8),
+                  ],
+                  if ((req.applicantName ?? '').isNotEmpty) ...[
+                    Expanded(
+                      child: GestureDetector(
+                        onLongPress: () => copyToClipboard(
+                          context,
+                          req.applicantName!,
+                          label: 'Nama Pemohon',
+                        ),
+                        child: Text(req.applicantName!, style: t.titleMedium),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Salin Nama',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(Icons.copy, size: 18),
+                      onPressed: () => copyToClipboard(
+                        context,
+                        req.applicantName!,
+                        label: 'Nama Pemohon',
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             const SizedBox(height: 6),
             Row(
               children: [

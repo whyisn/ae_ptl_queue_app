@@ -28,9 +28,36 @@ class PTLRequestTile extends StatelessWidget {
     return Card(
       child: ListTile(
         onTap: onTap,
-        title: Text(
-          data.displayApplicant,
-          style: const TextStyle(fontWeight: FontWeight.w600),
+        // title: Text(
+        //   data.displayApplicant,
+        //   style: const TextStyle(fontWeight: FontWeight.w600),
+        // ),
+        title: Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onLongPress: () => copyToClipboard(
+                  context,
+                  data.displayApplicant,
+                  label: 'ID/Nama',
+                ),
+                child: Text(
+                  data.displayApplicant,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Salin',
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(Icons.copy, size: 18),
+              onPressed: () => copyToClipboard(
+                context,
+                data.displayApplicant,
+                label: 'ID/Nama',
+              ),
+            ),
+          ],
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

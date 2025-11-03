@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 /// =====================
 /// VALIDATOR FORM BAKU
@@ -134,6 +135,37 @@ void showSnack(BuildContext ctx, String msg, {bool error = false}) {
     SnackBar(content: Text(msg), backgroundColor: error ? Colors.red : null),
   );
 }
+
+/// Salin teks ke clipboard + snackbar notifikasi singkat.
+Future<void> copyToClipboard(BuildContext ctx, String text,
+    {String? label}) async {
+  if (text.trim().isEmpty) return;
+  await Clipboard.setData(ClipboardData(text: text));
+  final caption = (label == null || label.isEmpty)
+      ? 'Tersalin'
+      : '$label tersalin';
+  ScaffoldMessenger.of(ctx).showSnackBar(
+    SnackBar(
+      content: Text(caption),
+      duration: const Duration(milliseconds: 1200),
+    ),
+  );
+}
+
+// /// Salin teks ke clipboard + snackbar kecil
+// void copyToClipboard(
+//   BuildContext context,
+//   String? text, {
+//   String label = 'Teks',
+// }) {
+//   final v = (text ?? '').trim();
+//   if (v.isEmpty) {
+//     showSnack(context, '$label kosong, tidak ada yang disalin');
+//     return;
+//   }
+//   Clipboard.setData(ClipboardData(text: v));
+//   showSnack(context, '$label disalin');
+// }
 
 /// Debouncer sederhana (untuk pencarian, dsb.)
 class Debouncer {
